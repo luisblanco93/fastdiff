@@ -164,19 +164,18 @@ impl Repository {
         metadata: &mut ReviewMetadata,
         cancel: &CancelToken,
     ) -> Result<(Vec<FileChange>, Option<String>)> {
-        // HEAD, its commit, the upstream commit, and the filter probe do not depend on each
-        // other. Run them together but consume the results in the original order, so a
-        // failure is reported only where the sequential code would have reached it.
-        let (branch, head, upstream) = self.prefetched(metadata, cancel, |_| {
-            thread::scope(|scope| {
-                let head = scope.spawn(|| self.commit_id("HEAD", cancel));
-                let upstream = scope.spawn(|| self.commit_id("@{upstream}", cancel));
-                (
-                    self.symbolic_head(cancel),
-                    join_scoped(head),
-                    join_scoped(upstream),
-                )
-            })
+        // HEAD, its commit, and the upstream commit do not depend on each other. Run them
+        // together but consume the results in the original order, so a failure is reported
+        // only where the sequential code would have reached it. The filter probe is not
+        // started here, so detached, unborn, and no-upstream results never run it.
+        let (branch, head, upstream) = thread::scope(|scope| {
+            let head = scope.spawn(|| self.commit_id("HEAD", cancel));
+            let upstream = scope.spawn(|| self.commit_id("@{upstream}", cancel));
+            (
+                self.symbolic_head(cancel),
+                join_scoped(head),
+                join_scoped(upstream),
+            )
         });
         let output = branch?;
         if output.status.code() == Some(1) {
@@ -198,9 +197,13 @@ impl Repository {
                 Some("Unpushed unavailable: no configured upstream commit. Set an upstream and fetch its history.".into()),
             ));
         };
-        let mut command = git_command(&self.root);
-        command.args(["merge-base", &upstream, &head]);
-        let output = run(command, 64 * 1024, cancel)?;
+        // Both refs resolved, so the probe overlaps merge-base; it is only wasted when the
+        // histories are unrelated.
+        let output = self.prefetched(metadata, cancel, |_| {
+            let mut command = git_command(&self.root);
+            command.args(["merge-base", &upstream, &head]);
+            run(command, 64 * 1024, cancel)
+        })?;
         if output.status.code() == Some(1) {
             return Ok((
                 Vec::new(),
