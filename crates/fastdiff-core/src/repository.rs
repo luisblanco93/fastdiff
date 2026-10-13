@@ -1,7 +1,7 @@
 use crate::{
     CancelToken, CommittedComparison, Comparison, DiffDocument, Error, FileChange, GitPath,
     MAX_DIFF_ROWS, MAX_PATCH_BYTES, MAX_SOURCE_BYTES, ReflogEntry, Result, View, patch,
-    process::{checked, git_command, run},
+    process::{GitOutput, checked, git_command, join_scoped, run},
 };
 use std::{
     collections::HashMap,
@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     sync::{Arc, Mutex},
+    thread,
 };
 
 mod reflog;
@@ -53,9 +54,7 @@ impl Repository {
     }
 
     pub fn current_branch(&self, cancel: &CancelToken) -> Result<Option<String>> {
-        let mut command = git_command(&self.root);
-        command.args(["symbolic-ref", "--quiet", "HEAD"]);
-        let output = run(command, 64 * 1024, cancel)?;
+        let output = self.symbolic_head(cancel)?;
         if output.status.code() == Some(1) {
             return Ok(None);
         }
@@ -165,9 +164,20 @@ impl Repository {
         metadata: &mut ReviewMetadata,
         cancel: &CancelToken,
     ) -> Result<(Vec<FileChange>, Option<String>)> {
-        let mut branch = git_command(&self.root);
-        branch.args(["symbolic-ref", "--quiet", "HEAD"]);
-        let output = run(branch, 64 * 1024, cancel)?;
+        // HEAD, its commit, and the upstream commit do not depend on each other. Run them
+        // together but consume the results in the original order, so a failure is reported
+        // only where the sequential code would have reached it. The filter probe is not
+        // started here, so detached, unborn, and no-upstream results never run it.
+        let (branch, head, upstream) = thread::scope(|scope| {
+            let head = scope.spawn(|| self.commit_id("HEAD", cancel));
+            let upstream = scope.spawn(|| self.commit_id("@{upstream}", cancel));
+            (
+                self.symbolic_head(cancel),
+                join_scoped(head),
+                join_scoped(upstream),
+            )
+        });
+        let output = branch?;
         if output.status.code() == Some(1) {
             return Ok((
                 Vec::new(),
@@ -175,21 +185,25 @@ impl Repository {
             ));
         }
         checked(output)?;
-        let Some(head) = self.commit_id("HEAD", cancel)? else {
+        let Some(head) = head? else {
             return Ok((
                 Vec::new(),
                 Some("Unpushed unavailable: HEAD has no commit.".into()),
             ));
         };
-        let Some(upstream) = self.commit_id("@{upstream}", cancel)? else {
+        let Some(upstream) = upstream? else {
             return Ok((
                 Vec::new(),
                 Some("Unpushed unavailable: no configured upstream commit. Set an upstream and fetch its history.".into()),
             ));
         };
-        let mut command = git_command(&self.root);
-        command.args(["merge-base", &upstream, &head]);
-        let output = run(command, 64 * 1024, cancel)?;
+        // Both refs resolved, so the probe overlaps merge-base; it is only wasted when the
+        // histories are unrelated.
+        let output = self.prefetched(metadata, cancel, |_| {
+            let mut command = git_command(&self.root);
+            command.args(["merge-base", &upstream, &head]);
+            run(command, 64 * 1024, cancel)
+        })?;
         if output.status.code() == Some(1) {
             return Ok((
                 Vec::new(),
@@ -253,22 +267,28 @@ impl Repository {
         if let Some(old) = &committed.old_path {
             old.relative_path()?;
         }
-        for (id, path) in [
-            (
-                &committed.base,
-                committed.old_path.as_ref().unwrap_or(&committed.path),
-            ),
-            (&committed.head, &committed.path),
-        ] {
-            if self
-                .blob_size(format!("{id}:").as_bytes(), path, cancel)?
-                .is_some_and(|size| size > MAX_SOURCE_BYTES as u64)
-            {
-                return Ok(patch::summary(
-                    "Unpushed",
-                    "File exceeds the 10 MiB automatic text loading limit.",
-                ));
+        let oversized = self.prefetched(metadata, cancel, |_| -> Result<bool> {
+            for (id, path) in [
+                (
+                    &committed.base,
+                    committed.old_path.as_ref().unwrap_or(&committed.path),
+                ),
+                (&committed.head, &committed.path),
+            ] {
+                if self
+                    .blob_size(format!("{id}:").as_bytes(), path, cancel)?
+                    .is_some_and(|size| size > MAX_SOURCE_BYTES as u64)
+                {
+                    return Ok(true);
+                }
             }
+            Ok(false)
+        })?;
+        if oversized {
+            return Ok(patch::summary(
+                "Unpushed",
+                "File exceeds the 10 MiB automatic text loading limit.",
+            ));
         }
         let mut command = self.review_command(metadata, cancel)?;
         command.args([
@@ -312,7 +332,11 @@ impl Repository {
         metadata: &mut ReviewMetadata,
         cancel: &CancelToken,
     ) -> Result<Comparison> {
-        if self.oversized(change, staged, metadata, cancel)? {
+        let oversized = self.oversized_on_disk(change, staged, cancel)?
+            || self.prefetched(metadata, cancel, |metadata| {
+                self.oversized_in_git(change, staged, metadata, cancel)
+            })?;
+        if oversized {
             return Ok(patch::summary(
                 label,
                 "File exceeds the 10 MiB automatic text loading limit.",
@@ -362,25 +386,32 @@ impl Repository {
         ))
     }
 
-    fn oversized(
+    /// The working-tree size check needs no Git process, so it runs before any probe starts.
+    fn oversized_on_disk(
+        &self,
+        change: &FileChange,
+        staged: bool,
+        cancel: &CancelToken,
+    ) -> Result<bool> {
+        cancel.check()?;
+        if staged {
+            return Ok(false);
+        }
+        let path = self.root.join(change.path.relative_path()?);
+        match fs::symlink_metadata(path) {
+            Ok(meta) => Ok(meta.is_file() && meta.len() > MAX_SOURCE_BYTES as u64),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    fn oversized_in_git(
         &self,
         change: &FileChange,
         staged: bool,
         metadata: &mut ReviewMetadata,
         cancel: &CancelToken,
     ) -> Result<bool> {
-        cancel.check()?;
-        if !staged {
-            let path = self.root.join(change.path.relative_path()?);
-            match fs::symlink_metadata(path) {
-                Ok(meta) if meta.is_file() && meta.len() > MAX_SOURCE_BYTES as u64 => {
-                    return Ok(true);
-                }
-                Ok(_) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(error.into()),
-            }
-        }
         if change.untracked && !staged {
             return Ok(false);
         }
@@ -445,6 +476,64 @@ impl Repository {
         }
     }
 
+    /// Run `work` while the filter-override probe runs concurrently. The probe result is
+    /// cached only on success, so a probe failure still surfaces in `review_command`.
+    fn prefetched<T>(
+        &self,
+        metadata: &mut ReviewMetadata,
+        cancel: &CancelToken,
+        work: impl FnOnce(&mut ReviewMetadata) -> T,
+    ) -> T {
+        if metadata.filter_overrides.is_some() {
+            return work(metadata);
+        }
+        let (result, overrides) = thread::scope(|scope| {
+            let probe = scope.spawn(|| self.filter_overrides(cancel));
+            (work(metadata), join_scoped(probe))
+        });
+        if let Ok(overrides) = overrides {
+            metadata.filter_overrides = Some(overrides);
+        }
+        result
+    }
+
+    fn symbolic_head(&self, cancel: &CancelToken) -> Result<GitOutput> {
+        let mut command = git_command(&self.root);
+        command.args(["symbolic-ref", "--quiet", "HEAD"]);
+        run(command, 64 * 1024, cancel)
+    }
+
+    fn filter_overrides(&self, cancel: &CancelToken) -> Result<Vec<OsString>> {
+        let mut config = git_command(&self.root);
+        config.args([
+            "config",
+            "--null",
+            "--name-only",
+            "--get-regexp",
+            r"^filter\..*\.(clean|process|required)$",
+        ]);
+        let output = run(config, 1024 * 1024, cancel)?;
+        let keys = if output.status.code() == Some(1) {
+            Vec::new()
+        } else {
+            checked(output)?
+        };
+        let mut overrides = Vec::new();
+        for key in keys.split(|byte| *byte == 0).filter(|key| !key.is_empty()) {
+            let dot = key
+                .iter()
+                .rposition(|byte| *byte == b'.')
+                .ok_or_else(|| Error::InvalidData("invalid filter key".into()))?;
+            for suffix in [b".clean=".as_slice(), b".process=", b".required=false"] {
+                let value: OsString = GitPath([&key[..dot], suffix].concat())
+                    .to_path_buf()?
+                    .into();
+                overrides.push(value);
+            }
+        }
+        Ok(overrides)
+    }
+
     fn review_command(
         &self,
         metadata: &mut ReviewMetadata,
@@ -452,34 +541,7 @@ impl Repository {
     ) -> Result<Command> {
         cancel.check()?;
         if metadata.filter_overrides.is_none() {
-            let mut config = git_command(&self.root);
-            config.args([
-                "config",
-                "--null",
-                "--name-only",
-                "--get-regexp",
-                r"^filter\..*\.(clean|process|required)$",
-            ]);
-            let output = run(config, 1024 * 1024, cancel)?;
-            let keys = if output.status.code() == Some(1) {
-                Vec::new()
-            } else {
-                checked(output)?
-            };
-            let mut overrides = Vec::new();
-            for key in keys.split(|byte| *byte == 0).filter(|key| !key.is_empty()) {
-                let dot = key
-                    .iter()
-                    .rposition(|byte| *byte == b'.')
-                    .ok_or_else(|| Error::InvalidData("invalid filter key".into()))?;
-                for suffix in [b".clean=".as_slice(), b".process=", b".required=false"] {
-                    let value: OsString = GitPath([&key[..dot], suffix].concat())
-                        .to_path_buf()?
-                        .into();
-                    overrides.push(value);
-                }
-            }
-            metadata.filter_overrides = Some(overrides);
+            metadata.filter_overrides = Some(self.filter_overrides(cancel)?);
         }
         let mut command = git_command(&self.root);
         for value in metadata.filter_overrides.as_deref().unwrap_or_default() {

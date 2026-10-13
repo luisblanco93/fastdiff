@@ -1298,3 +1298,120 @@ fn reflog_preserves_branch_names_that_look_like_ref_prefixes() {
         Some("refs/heads/topic")
     );
 }
+
+fn notice(root: &Path) -> (usize, Option<String>) {
+    let repository = Repository::discover(root).unwrap();
+    let (files, notice) = repository
+        .status_with_notice(View::Unpushed, &CancelToken::default())
+        .unwrap();
+    (files.len(), notice)
+}
+
+#[test]
+fn unpushed_reports_detached_head_before_looking_at_commits() {
+    let dir = repo();
+    write(dir.path(), "a.txt", "one\n");
+    commit(dir.path());
+    git(dir.path(), &["checkout", "--detach", "-q"]);
+    let (count, notice) = notice(dir.path());
+    assert_eq!(count, 0);
+    assert_eq!(
+        notice.as_deref(),
+        Some("Unpushed unavailable: HEAD is detached.")
+    );
+}
+
+#[test]
+fn unpushed_reports_a_branch_without_commits() {
+    let dir = repo();
+    let (count, notice) = notice(dir.path());
+    assert_eq!(count, 0);
+    assert_eq!(
+        notice.as_deref(),
+        Some("Unpushed unavailable: HEAD has no commit.")
+    );
+}
+
+#[test]
+fn unpushed_reports_a_missing_upstream() {
+    let dir = repo();
+    write(dir.path(), "a.txt", "one\n");
+    commit(dir.path());
+    let (count, notice) = notice(dir.path());
+    assert_eq!(count, 0);
+    assert!(
+        notice
+            .as_deref()
+            .is_some_and(|text| text.contains("no configured upstream commit")),
+        "{notice:?}"
+    );
+}
+
+#[test]
+fn unpushed_lists_local_commits_ahead_of_the_upstream() {
+    let dir = repo();
+    write(dir.path(), "a.txt", "one\n");
+    commit(dir.path());
+    git(dir.path(), &["branch", "base"]);
+    git(dir.path(), &["branch", "--set-upstream-to=base", "main"]);
+    write(dir.path(), "ahead.txt", "local\n");
+    commit(dir.path());
+    let (count, notice) = notice(dir.path());
+    assert_eq!((count, notice), (1, None));
+}
+
+/// Two replace refs that point at each other make `HEAD^{commit}` fail with exit 128
+/// ("replace depth too high") while `symbolic-ref` and `rev-parse --show-toplevel` still work.
+fn break_commit_resolution(root: &Path) {
+    let head = |revision: &str| {
+        let output = Command::new("git")
+            .current_dir(root)
+            .args(["rev-parse", revision])
+            .output()
+            .unwrap();
+        String::from_utf8(output.stdout).unwrap().trim().to_owned()
+    };
+    let (first, second) = (head("HEAD~1"), head("HEAD"));
+    git(
+        root,
+        &["update-ref", &format!("refs/replace/{first}"), &second],
+    );
+    git(
+        root,
+        &["update-ref", &format!("refs/replace/{second}"), &first],
+    );
+}
+
+fn two_commits() -> TempDir {
+    let dir = repo();
+    write(dir.path(), "a.txt", "one\n");
+    commit(dir.path());
+    write(dir.path(), "a.txt", "two\n");
+    commit(dir.path());
+    dir
+}
+
+#[test]
+fn unpushed_detached_notice_wins_over_a_failing_head_query() {
+    let dir = two_commits();
+    git(dir.path(), &["checkout", "--detach", "-q"]);
+    break_commit_resolution(dir.path());
+    let (count, notice) = notice(dir.path());
+    assert_eq!(count, 0);
+    assert_eq!(
+        notice.as_deref(),
+        Some("Unpushed unavailable: HEAD is detached.")
+    );
+}
+
+#[test]
+fn unpushed_surfaces_a_failing_head_query_on_a_branch() {
+    let dir = two_commits();
+    break_commit_resolution(dir.path());
+    let repository = Repository::discover(dir.path()).unwrap();
+    assert!(
+        repository
+            .status_with_notice(View::Unpushed, &CancelToken::default())
+            .is_err()
+    );
+}

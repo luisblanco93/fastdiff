@@ -122,6 +122,18 @@ impl WatchCoverage {
         coverage
     }
 
+    /// Coverage for a deferred start. A build cancelled midway is inert (`rebuild` returns
+    /// early and reports nothing), so it is discarded instead of replacing a retry.
+    pub(super) fn new_unless_cancelled(
+        backend: &Backend,
+        document: Option<&str>,
+        wake: SyncSender<()>,
+        cancel: &CancelToken,
+    ) -> Option<Self> {
+        let coverage = Self::new(backend, document, wake, cancel);
+        (!cancel.is_cancelled()).then_some(coverage)
+    }
+
     pub(super) fn take_received(&self) -> bool {
         self.received.swap(false, Ordering::AcqRel)
     }

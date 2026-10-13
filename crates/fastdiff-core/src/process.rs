@@ -9,7 +9,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    thread,
+    thread::{self, ScopedJoinHandle},
     time::Duration,
 };
 
@@ -36,6 +36,13 @@ pub(crate) struct GitOutput {
     pub status: ExitStatus,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
+}
+
+/// Join a scoped thread, resuming its panic on the caller instead of swallowing it.
+pub(crate) fn join_scoped<T>(handle: ScopedJoinHandle<'_, T>) -> T {
+    handle
+        .join()
+        .unwrap_or_else(|payload| std::panic::resume_unwind(payload))
 }
 
 pub(crate) fn git_command(root: &Path) -> Command {

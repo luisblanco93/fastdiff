@@ -1,7 +1,7 @@
 use super::Repository;
 use crate::{
     CancelToken, Error, GitPath, Result,
-    process::{checked, git_command, run},
+    process::{checked, git_command, join_scoped, run},
 };
 use std::{
     collections::hash_map::DefaultHasher,
@@ -158,15 +158,22 @@ fn parse_paths(bytes: &[u8]) -> Result<Vec<PathBuf>> {
 }
 
 pub(super) fn config_paths(root: &Path, cancel: &CancelToken) -> Result<(Vec<PathBuf>, bool)> {
+    // Independent Git queries: run them concurrently, then combine in a fixed order.
+    let (variables, listing) = std::thread::scope(|scope| {
+        let variables = ["GIT_CONFIG_SYSTEM", "GIT_CONFIG_GLOBAL"]
+            .map(|variable| scope.spawn(move || config_variable_paths(root, variable, cancel)));
+        let listing = scope.spawn(|| {
+            let mut command = git_command(root);
+            command.args(["config", "--includes", "--show-origin", "--null", "--list"]);
+            checked(run(command, 1024 * 1024, cancel)?)
+        });
+        (variables.map(join_scoped), join_scoped(listing))
+    });
     let mut paths = Vec::new();
-    for variable in ["GIT_CONFIG_SYSTEM", "GIT_CONFIG_GLOBAL"] {
-        let mut command = git_command(root);
-        command.args(["var", variable]);
-        paths.extend(parse_paths(&checked(run(command, 64 * 1024, cancel)?)?)?);
+    for variable in variables {
+        paths.extend(variable?);
     }
-    let mut command = git_command(root);
-    command.args(["config", "--includes", "--show-origin", "--null", "--list"]);
-    let bytes = checked(run(command, 1024 * 1024, cancel)?)?;
+    let bytes = listing?;
     let fields: Vec<_> = bytes
         .strip_suffix(&[0])
         .ok_or_else(|| Error::InvalidData("Unterminated Git config origins".into()))?
@@ -210,6 +217,16 @@ pub(super) fn config_paths(root: &Path, cancel: &CancelToken) -> Result<(Vec<Pat
         }
     }
     Ok((paths, reliable))
+}
+
+fn config_variable_paths(
+    root: &Path,
+    variable: &str,
+    cancel: &CancelToken,
+) -> Result<Vec<PathBuf>> {
+    let mut command = git_command(root);
+    command.args(["var", variable]);
+    parse_paths(&checked(run(command, 64 * 1024, cancel)?)?)
 }
 
 fn included_path(value: &[u8], origin: Option<&Path>) -> Result<PathBuf> {
