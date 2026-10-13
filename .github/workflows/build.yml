@@ -1,0 +1,161 @@
+name: Test and package
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libgl1-mesa-dev xvfb
+      - name: Check and test
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --locked
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Measure core and CLI coverage
+        run: |
+          cargo install cargo-llvm-cov --locked --version 0.6.21
+          mkdir -p coverage
+          cargo llvm-cov -p fastdiff-core --fail-under-lines 80 --lcov --output-path coverage/core.info
+          cargo llvm-cov -p fastdiff-cli --ignore-filename-regex 'crates/fastdiff-core/' --fail-under-lines 80 --lcov --output-path coverage/cli.info
+      - name: Build release
+        run: cargo build --release --locked --workspace
+      - name: Native window smoke test
+        run: |
+          fixture=$(mktemp -d)
+          git -C "$fixture" init
+          printf 'first line\n' > "$fixture/smoke.rs"
+          request=$(python3 -c 'import json,sys; print(json.dumps({"target":"repository","repository":sys.argv[1],"file":[115,109,111,107,101,46,114,115],"view":"all","wsl":None}))' "$fixture")
+          timeout 30s env FASTDIFF_BENCH_EXIT_MS=10000 FASTDIFF_BENCH_REPORT="$fixture/report.json" xvfb-run -a ./target/release/fastdiff-gui --request "$request" --smoke-test
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["first_diff_ms"] is not None' "$fixture/report.json"
+      - name: Package Linux
+        run: bash scripts/package-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: dist/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wsl-helper
+          path: target/release/fastdiff
+          if-no-files-found: error
+
+  release-assets:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-x64
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-x64-with-wsl-helper
+          path: dist
+      - name: Prepare release checksums
+        run: python3 scripts/package-release.py --tag "$GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            dist/fastdiff-*-linux-x64.tar.gz
+            dist/fastdiff-*-windows-x64.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  windows:
+    needs: linux
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt, clippy
+      - name: Check and test
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --locked -- --test-threads=2
+          python -m unittest discover -s scripts -p 'test_*.py'
+          ./scripts/test-package-windows.ps1
+      - name: Build release
+        run: cargo build --release --locked --workspace
+      - name: Install software OpenGL for Windows smoke test
+        uses: f3d-app/install-mesa-windows-action@1824e370ed7fb1795f5bc88fd1f6c81eb15d92bc
+        with:
+          path: '${{ github.workspace }}/target/release'
+          version: '23.3.5'
+      - name: Native Windows window smoke test
+        shell: python {0}
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          gui = Path('target/release/fastdiff-gui.exe').resolve()
+          with tempfile.TemporaryDirectory(prefix='fastdiff-smoke-') as directory:
+              fixture = Path(directory)
+              subprocess.run(['git', '-C', directory, 'init'], check=True)
+              (fixture / 'smoke.rs').write_text('first line\n', encoding='utf-8')
+              report = fixture / 'report.json'
+              request = json.dumps({
+                  'target': 'repository',
+                  'repository': directory,
+                  'file': list(b'smoke.rs'),
+                  'view': 'all',
+                  'wsl': None,
+              })
+              subprocess.run(
+                  [str(gui), '--request', request, '--smoke-test'],
+                  env={
+                      **os.environ,
+                      'FASTDIFF_BENCH_EXIT_MS': '10000',
+                      'FASTDIFF_BENCH_REPORT': str(report),
+                      'FASTDIFF_RUNTIME_DIR': str(fixture / 'runtime'),
+                  },
+                  check=True,
+                  timeout=30,
+              )
+              result = json.loads(report.read_text(encoding='utf-8'))
+              assert result.get('first_diff_ms') is not None, 'Native GUI did not render a diff'
+      - uses: actions/download-artifact@v4
+        with:
+          name: wsl-helper
+          path: paired-helper
+      - name: Package Windows with matching WSL helper
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -WslHelper paired-helper/fastdiff
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-with-wsl-helper
+          path: dist/*.zip
+          if-no-files-found: error

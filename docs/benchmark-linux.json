@@ -1,0 +1,206 @@
+{
+  "schema": 1,
+  "hardware": "AMD Ryzen 5 3600; WSL2 4 virtual CPUs; 4.8 GiB; Ubuntu 26.04; WSLg; Git 2.53.0; Rust 1.90.0; 2-file fixture; final Ctrl+F fix",
+  "platform": "Linux-6.18.40.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "python": "3.14.4 (main, Aug 20 2026, 10:41:58) [GCC 15.2.0]",
+  "wsl_distro": null,
+  "launcher": "/path/to/fastdiff/target/linux-release/release/fastdiff",
+  "windows_from_wsl": false,
+  "repository": "/path/to/fastdiff/target/native-tests/linux-repo",
+  "file": "smoke.rs",
+  "requested_runs": 30,
+  "completed_runs": 30,
+  "failure": null,
+  "samples": [
+    {
+      "first_frame_ms": 191.73626578125,
+      "first_diff_ms": 330.59501678125,
+      "launcher_ms": 214.53690200007713,
+      "idle_rss_bytes": 131407872
+    },
+    {
+      "first_frame_ms": 83.94607156250001,
+      "first_diff_ms": 203.1053565625,
+      "launcher_ms": 114.36625300007108,
+      "idle_rss_bytes": 131305472
+    },
+    {
+      "first_frame_ms": 70.855713578125,
+      "first_diff_ms": 175.42704357812502,
+      "launcher_ms": 114.60325300004115,
+      "idle_rss_bytes": 131497984
+    },
+    {
+      "first_frame_ms": 73.04396259375,
+      "first_diff_ms": 189.08937359375,
+      "launcher_ms": 115.4072780000206,
+      "idle_rss_bytes": 131551232
+    },
+    {
+      "first_frame_ms": 72.545026265625,
+      "first_diff_ms": 166.509072265625,
+      "launcher_ms": 114.61018300008163,
+      "idle_rss_bytes": 131477504
+    },
+    {
+      "first_frame_ms": 72.30510378125,
+      "first_diff_ms": 173.66899378125,
+      "launcher_ms": 114.48057400002654,
+      "idle_rss_bytes": 131371008
+    },
+    {
+      "first_frame_ms": 70.73889821875001,
+      "first_diff_ms": 170.28000821875,
+      "launcher_ms": 114.33895300001495,
+      "idle_rss_bytes": 131375104
+    },
+    {
+      "first_frame_ms": 73.84641178125,
+      "first_diff_ms": 174.59411478125,
+      "launcher_ms": 114.5348740000145,
+      "idle_rss_bytes": 131633152
+    },
+    {
+      "first_frame_ms": 69.781249953125,
+      "first_diff_ms": 178.53540795312497,
+      "launcher_ms": 114.27045599998564,
+      "idle_rss_bytes": 131686400
+    },
+    {
+      "first_frame_ms": 72.961002234375,
+      "first_diff_ms": 171.17189023437498,
+      "launcher_ms": 114.46588500007238,
+      "idle_rss_bytes": 131870720
+    },
+    {
+      "first_frame_ms": 72.649058484375,
+      "first_diff_ms": 182.60524748437498,
+      "launcher_ms": 114.3239650000396,
+      "idle_rss_bytes": 131219456
+    },
+    {
+      "first_frame_ms": 85.467060625,
+      "first_diff_ms": 211.37558662499998,
+      "launcher_ms": 116.07912900001338,
+      "idle_rss_bytes": 131203072
+    },
+    {
+      "first_frame_ms": 73.27528406249999,
+      "first_diff_ms": 170.4370460625,
+      "launcher_ms": 114.35433999997713,
+      "idle_rss_bytes": 131563520
+    },
+    {
+      "first_frame_ms": 80.51965329687499,
+      "first_diff_ms": 193.723615296875,
+      "launcher_ms": 115.45948699995279,
+      "idle_rss_bytes": 131411968
+    },
+    {
+      "first_frame_ms": 73.31215159375,
+      "first_diff_ms": 177.52015159375,
+      "launcher_ms": 114.28682999996909,
+      "idle_rss_bytes": 131743744
+    },
+    {
+      "first_frame_ms": 74.670507578125,
+      "first_diff_ms": 174.600309578125,
+      "launcher_ms": 114.44058000006407,
+      "idle_rss_bytes": 131489792
+    },
+    {
+      "first_frame_ms": 72.781099125,
+      "first_diff_ms": 191.545176125,
+      "launcher_ms": 114.4470619999538,
+      "idle_rss_bytes": 131403776
+    },
+    {
+      "first_frame_ms": 74.59990717187499,
+      "first_diff_ms": 200.98149517187503,
+      "launcher_ms": 114.34424500009754,
+      "idle_rss_bytes": 131219456
+    },
+    {
+      "first_frame_ms": 76.869753640625,
+      "first_diff_ms": 170.495956640625,
+      "launcher_ms": 114.31215599998268,
+      "idle_rss_bytes": 131366912
+    },
+    {
+      "first_frame_ms": 77.245140703125,
+      "first_diff_ms": 216.986049703125,
+      "launcher_ms": 114.21309500008192,
+      "idle_rss_bytes": 131432448
+    },
+    {
+      "first_frame_ms": 74.516988453125,
+      "first_diff_ms": 183.29006445312498,
+      "launcher_ms": 114.53771000003599,
+      "idle_rss_bytes": 131440640
+    },
+    {
+      "first_frame_ms": 74.247024609375,
+      "first_diff_ms": 179.934118609375,
+      "launcher_ms": 114.17341700007455,
+      "idle_rss_bytes": 131698688
+    },
+    {
+      "first_frame_ms": 69.721000296875,
+      "first_diff_ms": 165.99440829687498,
+      "launcher_ms": 114.41756299996086,
+      "idle_rss_bytes": 131502080
+    },
+    {
+      "first_frame_ms": 71.75116795312499,
+      "first_diff_ms": 186.00912195312497,
+      "launcher_ms": 114.3932270000505,
+      "idle_rss_bytes": 131039232
+    },
+    {
+      "first_frame_ms": 74.57055087500001,
+      "first_diff_ms": 187.734072875,
+      "launcher_ms": 114.47126400003071,
+      "idle_rss_bytes": 131645440
+    },
+    {
+      "first_frame_ms": 67.2376649375,
+      "first_diff_ms": 154.9533109375,
+      "launcher_ms": 114.27404400001251,
+      "idle_rss_bytes": 131350528
+    },
+    {
+      "first_frame_ms": 80.46802096875,
+      "first_diff_ms": 201.11575196875,
+      "launcher_ms": 114.59256499995263,
+      "idle_rss_bytes": 131493888
+    },
+    {
+      "first_frame_ms": 71.694183375,
+      "first_diff_ms": 195.971589375,
+      "launcher_ms": 114.43948900000578,
+      "idle_rss_bytes": 131497984
+    },
+    {
+      "first_frame_ms": 69.34830390625,
+      "first_diff_ms": 191.88879990625,
+      "launcher_ms": 114.348294000024,
+      "idle_rss_bytes": 131604480
+    },
+    {
+      "first_frame_ms": 72.405287890625,
+      "first_diff_ms": 179.11609589062502,
+      "launcher_ms": 114.3511939999371,
+      "idle_rss_bytes": 131719168
+    }
+  ],
+  "summary": {
+    "first_frame_p95_ms": 85.467060625,
+    "first_diff_p95_ms": 216.986049703125,
+    "max_idle_rss_bytes": 131870720,
+    "targets_met": {
+      "first_frame": true,
+      "first_diff": true,
+      "idle_rss": true
+    }
+  }
+}

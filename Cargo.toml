@@ -1,0 +1,27 @@
+[workspace]
+members = ["crates/fastdiff-core", "crates/fastdiff-cli", "crates/fastdiff-gui"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.11"
+edition = "2024"
+rust-version = "1.90"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+fastdiff-core = { path = "crates/fastdiff-core" }
+fastdiff-cli = { path = "crates/fastdiff-cli" }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
+thiserror = "=2.0.17"
+tempfile = "=3.23.0"
+eframe = { version = "=0.33.3", default-features = false, features = ["default_fonts", "glow", "x11", "wayland", "accesskit"] }
+egui = "=0.33.3"
+egui_kittest = { version = "=0.33.3", default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"

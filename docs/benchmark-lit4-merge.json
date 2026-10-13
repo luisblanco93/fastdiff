@@ -1,0 +1,349 @@
+{
+  "recorded_at": "2026-10-11T03:05:09.405714+00:00",
+  "platform": "Linux-6.18.40.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "cpu": "AMD Ryzen 5 3600 6-Core Processor",
+  "compiler": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+  "profile": "rustc --edition=2024 -O; System allocator, separate cfg memory_measurement build",
+  "source_sha256": {
+    "harness.rs": "abcf25c21bcff2f9ba8fea643312c8f4fbcfcac3613ce19190c77cd0c98cd810",
+    "merge_functions.rs": "4b0b6fc5bec74ddf3539aa7ceb1a914cbe63c032dd98ca6cd43c383707df27cf"
+  },
+  "method": "Exact old/current merge functions and model struct layouts; 32-byte synthetic raw paths; disjoint: n total records split across both inputs, overlap: n working + n committed for n destinations; input cloning and output validation/drop excluded from timer; one warmup and five samples per variant; byte-for-byte output equality and first-occurrence order assertions.",
+  "memory_method": "Separate fresh process per variant; System global allocator tracks requested live heap bytes including inputs and output; excludes allocator bookkeeping, reserved arenas, stack and RSS; peak includes transient vector/hash-map reallocation requested sizes, not System allocator internal copies. Memory-only cases add 128-byte paths. Reported deltas subtract each process input_live baseline to remove argv/runtime size differences; after-merge delta compares net live change after consuming inputs, not standalone output size.",
+  "cases": [
+    {
+      "distinct_paths": 1000,
+      "path_bytes": 32,
+      "workload": "disjoint",
+      "variants": {
+        "old": {
+          "samples_ms": [
+            1.997633,
+            1.915794,
+            2.090093,
+            1.826225,
+            1.825395
+          ],
+          "median_ms": 1.915794,
+          "heap": {
+            "input_live_bytes": 295493,
+            "peak_live_bytes": 400293,
+            "peak_above_input_bytes": 104800,
+            "after_merge_live_bytes": 300293,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "samples_ms": [
+            0.157619,
+            0.166259,
+            0.16787,
+            0.19151,
+            0.15676
+          ],
+          "median_ms": 0.166259,
+          "heap": {
+            "input_live_bytes": 295497,
+            "peak_live_bytes": 530409,
+            "peak_above_input_bytes": 234912,
+            "after_merge_live_bytes": 300297,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "median_speedup": 11.52294913358074,
+      "added_peak_live_bytes": 130112,
+      "after_merge_live_difference_bytes": 0
+    },
+    {
+      "distinct_paths": 1000,
+      "path_bytes": 32,
+      "workload": "overlap",
+      "variants": {
+        "old": {
+          "samples_ms": [
+            3.876028,
+            4.059068,
+            3.936088,
+            4.038608,
+            3.900829
+          ],
+          "median_ms": 3.936088,
+          "heap": {
+            "input_live_bytes": 590335,
+            "peak_live_bytes": 795135,
+            "peak_above_input_bytes": 204800,
+            "after_merge_live_bytes": 359463,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "samples_ms": [
+            0.373079,
+            0.367929,
+            0.392918,
+            0.360579,
+            0.366179
+          ],
+          "median_ms": 0.367929,
+          "heap": {
+            "input_live_bytes": 590339,
+            "peak_live_bytes": 925251,
+            "peak_above_input_bytes": 334912,
+            "after_merge_live_bytes": 359467,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "median_speedup": 10.69795531203031,
+      "added_peak_live_bytes": 130112,
+      "after_merge_live_difference_bytes": 0
+    },
+    {
+      "distinct_paths": 10000,
+      "path_bytes": 32,
+      "workload": "disjoint",
+      "variants": {
+        "old": {
+          "samples_ms": [
+            190.597413,
+            218.17896,
+            202.488246,
+            193.817834,
+            192.365337
+          ],
+          "median_ms": 193.817834,
+          "heap": {
+            "input_live_bytes": 2948994,
+            "peak_live_bytes": 5225794,
+            "peak_above_input_bytes": 2276800,
+            "after_merge_live_bytes": 4225794,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "samples_ms": [
+            1.625345,
+            1.640935,
+            1.818115,
+            1.798284,
+            2.193194
+          ],
+          "median_ms": 1.798284,
+          "heap": {
+            "input_live_bytes": 2948998,
+            "peak_live_bytes": 6086486,
+            "peak_above_input_bytes": 3137488,
+            "after_merge_live_bytes": 4225798,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "median_speedup": 107.77932406672139,
+      "added_peak_live_bytes": 860688,
+      "after_merge_live_difference_bytes": 0
+    },
+    {
+      "distinct_paths": 10000,
+      "path_bytes": 32,
+      "workload": "overlap",
+      "variants": {
+        "old": {
+          "samples_ms": [
+            547.054446,
+            498.608343,
+            523.164258,
+            499.862619,
+            521.828773
+          ],
+          "median_ms": 521.828773,
+          "heap": {
+            "input_live_bytes": 5897336,
+            "peak_live_bytes": 9174136,
+            "peak_above_input_bytes": 3276800,
+            "after_merge_live_bytes": 4817464,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "samples_ms": [
+            5.214554,
+            3.649529,
+            3.750908,
+            3.6471,
+            3.714799
+          ],
+          "median_ms": 3.714799,
+          "heap": {
+            "input_live_bytes": 5897340,
+            "peak_live_bytes": 10034828,
+            "peak_above_input_bytes": 4137488,
+            "after_merge_live_bytes": 4817468,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "median_speedup": 140.47294968045375,
+      "added_peak_live_bytes": 860688,
+      "after_merge_live_difference_bytes": 0
+    },
+    {
+      "distinct_paths": 50000,
+      "path_bytes": 32,
+      "workload": "disjoint",
+      "variants": {
+        "old": {
+          "samples_ms": [
+            7776.793752,
+            6411.312682,
+            6145.943103,
+            6188.543794,
+            7891.542586
+          ],
+          "median_ms": 6411.312682,
+          "heap": {
+            "input_live_bytes": 14742316,
+            "peak_live_bytes": 22849516,
+            "peak_above_input_bytes": 8107200,
+            "after_merge_live_bytes": 17849516,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "samples_ms": [
+            9.718361,
+            9.85009,
+            10.368188,
+            10.188869,
+            12.445042
+          ],
+          "median_ms": 10.188869,
+          "heap": {
+            "input_live_bytes": 14742320,
+            "peak_live_bytes": 26612224,
+            "peak_above_input_bytes": 11869904,
+            "after_merge_live_bytes": 17849520,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "median_speedup": 629.2467477989951,
+      "added_peak_live_bytes": 3762704,
+      "after_merge_live_difference_bytes": 0
+    },
+    {
+      "distinct_paths": 50000,
+      "path_bytes": 32,
+      "workload": "overlap",
+      "variants": {
+        "old": {
+          "samples_ms": [
+            26702.878049,
+            28375.698981,
+            26954.896258,
+            28658.141936,
+            27856.183181
+          ],
+          "median_ms": 27856.183181,
+          "heap": {
+            "input_live_bytes": 29483993,
+            "peak_live_bytes": 42591193,
+            "peak_above_input_bytes": 13107200,
+            "after_merge_live_bytes": 20807857,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "samples_ms": [
+            32.333012,
+            27.904125,
+            26.583099,
+            27.302787,
+            28.189604
+          ],
+          "median_ms": 27.904125,
+          "heap": {
+            "input_live_bytes": 29483997,
+            "peak_live_bytes": 46353901,
+            "peak_above_input_bytes": 16869904,
+            "after_merge_live_bytes": 20807861,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "median_speedup": 998.2819092517683,
+      "added_peak_live_bytes": 3762704,
+      "after_merge_live_difference_bytes": 0
+    },
+    {
+      "distinct_paths": 50000,
+      "path_bytes": 128,
+      "workload": "disjoint",
+      "variants": {
+        "old": {
+          "heap": {
+            "input_live_bytes": 21942317,
+            "peak_live_bytes": 30049517,
+            "peak_above_input_bytes": 8107200,
+            "after_merge_live_bytes": 25049517,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "heap": {
+            "input_live_bytes": 21942321,
+            "peak_live_bytes": 38612225,
+            "peak_above_input_bytes": 16669904,
+            "after_merge_live_bytes": 25049521,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "added_peak_live_bytes": 8562704,
+      "after_merge_live_difference_bytes": 0
+    },
+    {
+      "distinct_paths": 50000,
+      "path_bytes": 128,
+      "workload": "overlap",
+      "variants": {
+        "old": {
+          "heap": {
+            "input_live_bytes": 43883994,
+            "peak_live_bytes": 56991194,
+            "peak_above_input_bytes": 13107200,
+            "after_merge_live_bytes": 30407858,
+            "file_change_bytes": 200
+          }
+        },
+        "indexed": {
+          "heap": {
+            "input_live_bytes": 43883998,
+            "peak_live_bytes": 65553902,
+            "peak_above_input_bytes": 21669904,
+            "after_merge_live_bytes": 30407862,
+            "file_change_bytes": 200
+          }
+        }
+      },
+      "added_peak_live_bytes": 8562704,
+      "after_merge_live_difference_bytes": 0
+    }
+  ],
+  "measured_sources": {
+    "harness.rs": "include!(\"merge_functions.rs\");\n\n#[cfg(memory_measurement)]\nmod heap {\n    use std::alloc::{GlobalAlloc, Layout, System};\n    use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};\n    pub static LIVE: AtomicUsize = AtomicUsize::new(0);\n    pub static PEAK: AtomicUsize = AtomicUsize::new(0);\n    pub struct Counted;\n    fn add(bytes: usize) {\n        let live = LIVE.fetch_add(bytes, Relaxed) + bytes;\n        PEAK.fetch_max(live, Relaxed);\n    }\n    unsafe impl GlobalAlloc for Counted {\n        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {\n            let pointer = unsafe { System.alloc(layout) };\n            if !pointer.is_null() {\n                add(layout.size());\n            }\n            pointer\n        }\n        unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {\n            LIVE.fetch_sub(layout.size(), Relaxed);\n            unsafe { System.dealloc(pointer, layout) };\n        }\n        unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {\n            let result = unsafe { System.realloc(pointer, layout, new_size) };\n            if !result.is_null() {\n                if new_size >= layout.size() {\n                    add(new_size - layout.size());\n                } else {\n                    LIVE.fetch_sub(layout.size() - new_size, Relaxed);\n                }\n            }\n            result\n        }\n    }\n}\n#[cfg(memory_measurement)]\n#[global_allocator]\nstatic ALLOCATOR: heap::Counted = heap::Counted;\n\ntype Merge = fn(Vec<FileChange>, Vec<FileChange>) -> Vec<FileChange>;\n\nfn fixture(n: usize, path_bytes: usize, overlap: bool) -> (Vec<FileChange>, Vec<FileChange>) {\n    let make = |index: usize, committed: bool| {\n        let path = GitPath(format!(\"{:0width$}\", index, width = path_bytes).into_bytes());\n        FileChange {\n            path: path.clone(),\n            old_path: (index % 3 == 0).then(|| GitPath(b\"old-name\".to_vec())),\n            staged: !committed && index % 2 == 0,\n            unstaged: !committed,\n            untracked: !committed && index % 5 == 0,\n            conflict: !committed && index % 7 == 0,\n            status: if committed { \"M\" } else { \" M\" }.into(),\n            committed: committed.then(|| CommittedComparison {\n                base: \"1\".repeat(40),\n                head: \"2\".repeat(40),\n                path,\n                old_path: (index % 3 == 0).then(|| GitPath(b\"committed-old\".to_vec())),\n                status: \"M\".into(),\n            }),\n        }\n    };\n    if overlap {\n        ((0..n).map(|i| make(i, false)).collect(), (0..n).map(|i| make(i, true)).collect())\n    } else {\n        ((0..n / 2).map(|i| make(i, false)).collect(), (n / 2..n).map(|i| make(i, true)).collect())\n    }\n}\n\nfn main() {\n    let args: Vec<String> = std::env::args().collect();\n    let n: usize = args[1].parse().unwrap();\n    let path_bytes: usize = args[2].parse().unwrap();\n    let overlap = args[3] == \"overlap\";\n    let indexed = args[4] == \"indexed\";\n    let merge: Merge = if indexed { merge_changes } else { old_merge };\n    let (working, committed) = fixture(n, path_bytes, overlap);\n    #[cfg(not(memory_measurement))]\n    {\n        let expected = old_merge(working.clone(), committed.clone());\n        assert_eq!(expected, merge_changes(working.clone(), committed.clone()));\n        assert_eq!(expected.len(), n);\n        for (i, record) in expected.iter().enumerate() {\n            assert_eq!(record.path.0, format!(\"{:0width$}\", i, width = path_bytes).into_bytes());\n        }\n        for sample in 0..6 {\n            let left = working.clone();\n            let right = committed.clone();\n            let start = Instant::now();\n            let result = black_box(merge(black_box(left), black_box(right)));\n            let elapsed = start.elapsed().as_nanos();\n            assert_eq!(result, expected);\n            if sample > 0 {\n                println!(\"{{\\\"sample\\\":{},\\\"ns\\\":{}}}\", sample, elapsed);\n            }\n        }\n    }\n    #[cfg(memory_measurement)]\n    {\n        use std::sync::atomic::Ordering::Relaxed;\n        let baseline = heap::LIVE.load(Relaxed);\n        heap::PEAK.store(baseline, Relaxed);\n        let result = black_box(merge(black_box(working), black_box(committed)));\n        let peak = heap::PEAK.load(Relaxed);\n        let retained = heap::LIVE.load(Relaxed);\n        assert_eq!(result.len(), n);\n        println!(\"{{\\\"input_live_bytes\\\":{},\\\"peak_live_bytes\\\":{},\\\"peak_above_input_bytes\\\":{},\\\"after_merge_live_bytes\\\":{},\\\"file_change_bytes\\\":{}}}\", baseline, peak, peak - baseline, retained, std::mem::size_of::<FileChange>());\n    }\n}\n",
+    "merge_functions.rs": "use std::{collections::HashMap, hint::black_box, time::Instant};\n#[derive(Debug, Clone, PartialEq, Eq, Hash)]\npub struct GitPath(pub Vec<u8>);\n#[derive(Debug, Clone, PartialEq, Eq)]\npub struct FileChange {\n    pub path: GitPath,\n    pub old_path: Option<GitPath>,\n    pub staged: bool,\n    pub unstaged: bool,\n    pub untracked: bool,\n    pub conflict: bool,\n    pub status: String,\n    pub committed: Option<CommittedComparison>,\n}\n#[derive(Debug, Clone, PartialEq, Eq)]\npub struct CommittedComparison {\n    pub base: String,\n    pub head: String,\n    pub path: GitPath,\n    pub old_path: Option<GitPath>,\n    pub status: String,\n}\nfn old_merge(working: Vec<FileChange>, committed: Vec<FileChange>) -> Vec<FileChange> {\n    let mut files: Vec<FileChange> = Vec::new();\n    for change in working.into_iter().chain(committed) {\n        if let Some(index) = files.iter().position(|file| file.path == change.path) {\n            let existing = &files[index];\n            let staged_metadata = if change.staged && !existing.staged {\n                &change\n            } else {\n                existing\n            };\n            files[index] = FileChange {\n                path: existing.path.clone(),\n                old_path: staged_metadata.old_path.clone(),\n                staged: existing.staged || change.staged,\n                unstaged: existing.unstaged || change.unstaged,\n                untracked: existing.untracked || change.untracked,\n                conflict: existing.conflict || change.conflict,\n                status: staged_metadata.status.clone(),\n                committed: change.committed.or_else(|| existing.committed.clone()),\n            };\n        } else {\n            files.push(change);\n        }\n    }\n    files\n}\nfn merge_changes(working: Vec<FileChange>, committed: Vec<FileChange>) -> Vec<FileChange> {\n    let mut files: Vec<FileChange> = Vec::new();\n    let mut indices: HashMap<GitPath, usize> = HashMap::new();\n    for change in working.into_iter().chain(committed) {\n        if let Some(&index) = indices.get(&change.path) {\n            let existing = &files[index];\n            let staged_metadata = if change.staged && !existing.staged {\n                &change\n            } else {\n                existing\n            };\n            files[index] = FileChange {\n                path: existing.path.clone(),\n                old_path: staged_metadata.old_path.clone(),\n                staged: existing.staged || change.staged,\n                unstaged: existing.unstaged || change.unstaged,\n                untracked: existing.untracked || change.untracked,\n                conflict: existing.conflict || change.conflict,\n                status: staged_metadata.status.clone(),\n                committed: change.committed.or_else(|| existing.committed.clone()),\n            };\n        } else {\n            indices.insert(change.path.clone(), files.len());\n            files.push(change);\n        }\n    }\n    files\n}\n"
+  },
+  "reproduction_sources": {
+    "harness.rs": "include!(\"merge_functions.rs\");\n\n#[cfg(memory_measurement)]\nmod heap {\n    use std::alloc::{GlobalAlloc, Layout, System};\n    use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};\n    pub static LIVE: AtomicUsize = AtomicUsize::new(0);\n    pub static PEAK: AtomicUsize = AtomicUsize::new(0);\n    pub struct Counted;\n    fn add(bytes: usize) {\n        let live = LIVE.fetch_add(bytes, Relaxed) + bytes;\n        PEAK.fetch_max(live, Relaxed);\n    }\n    unsafe impl GlobalAlloc for Counted {\n        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {\n            // SAFETY: GlobalAlloc supplies a valid allocation layout.\n            let pointer = unsafe { System.alloc(layout) };\n            if !pointer.is_null() {\n                add(layout.size());\n            }\n            pointer\n        }\n        unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {\n            LIVE.fetch_sub(layout.size(), Relaxed);\n            // SAFETY: GlobalAlloc supplies the live pointer and its allocation layout.\n            unsafe { System.dealloc(pointer, layout) };\n        }\n        unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {\n            // SAFETY: GlobalAlloc supplies a live pointer, its layout, and a valid new size.\n            let result = unsafe { System.realloc(pointer, layout, new_size) };\n            if !result.is_null() {\n                if new_size >= layout.size() {\n                    add(new_size - layout.size());\n                } else {\n                    LIVE.fetch_sub(layout.size() - new_size, Relaxed);\n                }\n            }\n            result\n        }\n    }\n}\n#[cfg(memory_measurement)]\n#[global_allocator]\nstatic ALLOCATOR: heap::Counted = heap::Counted;\n\ntype Merge = fn(Vec<FileChange>, Vec<FileChange>) -> Vec<FileChange>;\n\nfn fixture(n: usize, path_bytes: usize, overlap: bool) -> (Vec<FileChange>, Vec<FileChange>) {\n    let make = |index: usize, committed: bool| {\n        let path = GitPath(format!(\"{:0width$}\", index, width = path_bytes).into_bytes());\n        FileChange {\n            path: path.clone(),\n            old_path: (index % 3 == 0).then(|| GitPath(b\"old-name\".to_vec())),\n            staged: !committed && index % 2 == 0,\n            unstaged: !committed,\n            untracked: !committed && index % 5 == 0,\n            conflict: !committed && index % 7 == 0,\n            status: if committed { \"M\" } else { \" M\" }.into(),\n            committed: committed.then(|| CommittedComparison {\n                base: \"1\".repeat(40),\n                head: \"2\".repeat(40),\n                path,\n                old_path: (index % 3 == 0).then(|| GitPath(b\"committed-old\".to_vec())),\n                status: \"M\".into(),\n            }),\n        }\n    };\n    if overlap {\n        ((0..n).map(|i| make(i, false)).collect(), (0..n).map(|i| make(i, true)).collect())\n    } else {\n        ((0..n / 2).map(|i| make(i, false)).collect(), (n / 2..n).map(|i| make(i, true)).collect())\n    }\n}\n\nfn main() {\n    let args: Vec<String> = std::env::args().collect();\n    let n: usize = args[1].parse().unwrap();\n    let path_bytes: usize = args[2].parse().unwrap();\n    let overlap = args[3] == \"overlap\";\n    let indexed = args[4] == \"indexed\";\n    let merge: Merge = if indexed { merge_changes } else { old_merge };\n    let (working, committed) = fixture(n, path_bytes, overlap);\n    #[cfg(not(memory_measurement))]\n    {\n        let expected = old_merge(working.clone(), committed.clone());\n        assert_eq!(expected, merge_changes(working.clone(), committed.clone()));\n        assert_eq!(expected.len(), n);\n        for (i, record) in expected.iter().enumerate() {\n            assert_eq!(record.path.0, format!(\"{:0width$}\", i, width = path_bytes).into_bytes());\n        }\n        for sample in 0..6 {\n            let left = working.clone();\n            let right = committed.clone();\n            let start = Instant::now();\n            let result = black_box(merge(black_box(left), black_box(right)));\n            let elapsed = start.elapsed().as_nanos();\n            assert_eq!(result, expected);\n            if sample > 0 {\n                println!(\"{{\\\"sample\\\":{},\\\"ns\\\":{}}}\", sample, elapsed);\n            }\n        }\n    }\n    #[cfg(memory_measurement)]\n    {\n        use std::sync::atomic::Ordering::Relaxed;\n        let baseline = heap::LIVE.load(Relaxed);\n        heap::PEAK.store(baseline, Relaxed);\n        let result = black_box(merge(black_box(working), black_box(committed)));\n        let peak = heap::PEAK.load(Relaxed);\n        let retained = heap::LIVE.load(Relaxed);\n        assert_eq!(result.len(), n);\n        println!(\"{{\\\"input_live_bytes\\\":{},\\\"peak_live_bytes\\\":{},\\\"peak_above_input_bytes\\\":{},\\\"after_merge_live_bytes\\\":{},\\\"file_change_bytes\\\":{}}}\", baseline, peak, peak - baseline, retained, std::mem::size_of::<FileChange>());\n    }\n}\n",
+    "merge_functions.rs": "use std::{collections::HashMap, hint::black_box, time::Instant};\n#[derive(Debug, Clone, PartialEq, Eq, Hash)]\npub struct GitPath(pub Vec<u8>);\n#[derive(Debug, Clone, PartialEq, Eq)]\npub struct FileChange {\n    pub path: GitPath,\n    pub old_path: Option<GitPath>,\n    pub staged: bool,\n    pub unstaged: bool,\n    pub untracked: bool,\n    pub conflict: bool,\n    pub status: String,\n    pub committed: Option<CommittedComparison>,\n}\n#[derive(Debug, Clone, PartialEq, Eq)]\npub struct CommittedComparison {\n    pub base: String,\n    pub head: String,\n    pub path: GitPath,\n    pub old_path: Option<GitPath>,\n    pub status: String,\n}\nfn old_merge(working: Vec<FileChange>, committed: Vec<FileChange>) -> Vec<FileChange> {\n    let mut files: Vec<FileChange> = Vec::new();\n    for change in working.into_iter().chain(committed) {\n        if let Some(index) = files.iter().position(|file| file.path == change.path) {\n            let existing = &files[index];\n            let staged_metadata = if change.staged && !existing.staged {\n                &change\n            } else {\n                existing\n            };\n            files[index] = FileChange {\n                path: existing.path.clone(),\n                old_path: staged_metadata.old_path.clone(),\n                staged: existing.staged || change.staged,\n                unstaged: existing.unstaged || change.unstaged,\n                untracked: existing.untracked || change.untracked,\n                conflict: existing.conflict || change.conflict,\n                status: staged_metadata.status.clone(),\n                committed: change.committed.or_else(|| existing.committed.clone()),\n            };\n        } else {\n            files.push(change);\n        }\n    }\n    files\n}\nfn merge_changes(working: Vec<FileChange>, committed: Vec<FileChange>) -> Vec<FileChange> {\n    let mut files: Vec<FileChange> = Vec::new();\n    let mut indices: HashMap<GitPath, usize> = HashMap::new();\n    for change in working.into_iter().chain(committed) {\n        if let Some(&index) = indices.get(&change.path) {\n            let existing = &files[index];\n            let staged_metadata = if change.staged && !existing.staged {\n                &change\n            } else {\n                existing\n            };\n            files[index] = FileChange {\n                path: existing.path.clone(),\n                old_path: staged_metadata.old_path.clone(),\n                staged: existing.staged || change.staged,\n                unstaged: existing.unstaged || change.unstaged,\n                untracked: existing.untracked || change.untracked,\n                conflict: existing.conflict || change.conflict,\n                status: staged_metadata.status.clone(),\n                committed: change.committed.or_else(|| existing.committed.clone()),\n            };\n        } else {\n            indices.insert(change.path.clone(), files.len());\n            files.push(change);\n        }\n    }\n    files\n}\n",
+    "run.py": "import hashlib\nimport json\nimport pathlib\nimport platform\nimport statistics\nimport subprocess\nfrom datetime import datetime, timezone\n\nroot = pathlib.Path(__file__).resolve().parent\nreport = {\n    'recorded_at': datetime.now(timezone.utc).isoformat(),\n    'platform': platform.platform(),\n    'cpu': next(line.split(':', 1)[1].strip() for line in pathlib.Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')),\n    'compiler': subprocess.check_output(['target/local-tools/fastdiff-rustup/toolchains/1.90.0-x86_64-unknown-linux-gnu/bin/rustc', '--version'], text=True).strip(),\n    'profile': 'rustc --edition=2024 -O; System allocator, separate cfg memory_measurement build',\n    'source_sha256': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in ['harness.rs', 'merge_functions.rs']},\n    'method': 'Exact old/current merge functions and model struct layouts; 32-byte synthetic raw paths; disjoint: n total records split across both inputs, overlap: n working + n committed for n destinations; input cloning and output validation/drop excluded from timer; one warmup and five samples per variant; byte-for-byte output equality and first-occurrence order assertions.',\n    'memory_method': 'Separate fresh process per variant; System global allocator tracks requested live heap bytes including inputs and output; excludes allocator bookkeeping, reserved arenas, stack and RSS; peak includes transient vector/hash-map reallocation requested sizes, not System allocator internal copies. Memory-only cases add 128-byte paths. Deltas subtract each process input_live baseline to remove argv/runtime size differences; after-merge delta compares net live change after consuming inputs, not standalone output size.',\n    'cases': [],\n}\nfor length in [32, 128]:\n    for n in ([1000, 10000, 50000] if length == 32 else [50000]):\n        for workload in ['disjoint', 'overlap']:\n            case = {'distinct_paths': n, 'path_bytes': length, 'workload': workload, 'variants': {}}\n            for variant in ['old', 'indexed']:\n                row = {}\n                if length == 32:\n                    output = subprocess.check_output([str(root / 'timing'), str(n), str(length), workload, variant], text=True)\n                    row['samples_ms'] = [json.loads(line)['ns'] / 1_000_000 for line in output.splitlines()]\n                    row['median_ms'] = statistics.median(row['samples_ms'])\n                row['heap'] = json.loads(subprocess.check_output([str(root / 'memory'), str(n), str(length), workload, variant], text=True))\n                case['variants'][variant] = row\n            old, indexed = (case['variants'][v] for v in ['old', 'indexed'])\n            if length == 32:\n                case['median_speedup'] = old['median_ms'] / indexed['median_ms']\n            case['added_peak_live_bytes'] = indexed['heap']['peak_above_input_bytes'] - old['heap']['peak_above_input_bytes']\n            case['after_merge_live_difference_bytes'] = (indexed['heap']['after_merge_live_bytes'] - indexed['heap']['input_live_bytes']) - (old['heap']['after_merge_live_bytes'] - old['heap']['input_live_bytes'])\n            report['cases'].append(case)\n            (root / 'report.json').write_text(json.dumps(report, indent=2) + '\\n')\n            print(json.dumps({k: v for k, v in case.items() if k != 'variants'}), flush=True)\nprint('Report saved:', root / 'report.json', flush=True)\n"
+  },
+  "reproduction_source_sha256": {
+    "harness.rs": "5055dfe13c2c7996807ae49529a3d30eb6ba747a900b0c6275ab2f86485b88c8",
+    "merge_functions.rs": "4b0b6fc5bec74ddf3539aa7ceb1a914cbe63c032dd98ca6cd43c383707df27cf",
+    "run.py": "8e563b9cf7cdf6708261430cdebc2515d663e4ae45852acea567a9284214dc64"
+  },
+  "review": "One focused Rust review: allocator accounting and baseline normalization confirmed; added three SAFETY comments after measurement (no behavioral change). Measured-source hashes/snapshots retained separately.",
+  "limits": "Synthetic single-threaded optimized function benchmark on this host; five timed samples per variant, one warmup, no confidence intervals; full output equality/order checked for 32-byte timed fixtures. 128-byte memory-only fixtures assert output length. Existing focused production tests cover staged precedence/flags/rename/conflict edges. No Git, GUI, native Windows/WSL bridge or end-to-end latency measured. Requested live heap is not RSS or total allocator commitment."
+}

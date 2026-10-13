@@ -1,0 +1,23 @@
+/target/
+/dist/
+/coverage/
+*.profraw
+*.profdata
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+
+# Folder-local agent setup and private configuration
+/.agents/
+/.claude/
+/.codex/
+/.aws/
+/.claude-plugin/
+/AGENTS.md
+/CLAUDE.md
+/CLAUDE.local.md
+/RTK.md
+/skills-lock.json
+/.impeccable/

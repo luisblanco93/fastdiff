@@ -1,0 +1,25 @@
+[package]
+name = "fastdiff-gui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+autobins = false
+
+[dependencies]
+fastdiff-core.workspace = true
+fastdiff-cli.workspace = true
+eframe.workspace = true
+egui.workspace = true
+egui_extras = { version = "=0.33.3", default-features = false, features = ["svg"] }
+serde_json.workspace = true
+notify = "=8.2.0"
+unicode-width = { version = "=0.2.2", default-features = false }
+
+[dev-dependencies]
+egui_kittest = { workspace = true, default-features = false }
+tempfile.workspace = true
+
+[[bin]]
+name = "fastdiff-gui"
+path = "src/main.rs"

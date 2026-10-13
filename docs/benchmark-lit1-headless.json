@@ -1,0 +1,448 @@
+{
+  "schema": 1,
+  "issue": "LIT-1",
+  "recorded_utc": "2026-10-11T02:10:37.811712+00:00",
+  "environment": {
+    "uname": [
+      "Linux",
+      "host",
+      "6.18.40.1-microsoft-standard-WSL2",
+      "#1 SMP PREEMPT_DYNAMIC Fri Jul 31 22:12:15 UTC 2026",
+      "x86_64"
+    ],
+    "git_version": "git version 2.53.0",
+    "clock_ticks_per_second": 100,
+    "mem_total_kib": 5039376,
+    "cpu_model": "AMD Ryzen 5 3600 6-Core Processor",
+    "cpu_count": 4,
+    "wsl_distribution": "Ubuntu",
+    "os_release": "PRETTY_NAME=\"Ubuntu 26.04 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"26.04\"\nVERSION=\"26.04 (Resolute Raccoon)\"\nVERSION_CODENAME=resolute\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=resolute\nLOGO=ubuntu-logo\n"
+  },
+  "rust_version": "rustc 1.90.0 (1159e78c4 2025-09-14)",
+  "build_profile": "test profile; unoptimized + debuginfo",
+  "fixture": {
+    "repositories": 3,
+    "files_each": 1,
+    "tracked_file": "main.rs",
+    "initial_file": "fn main() { println!(\"original\"); }\n",
+    "modified_file": "fn main() { println!(\"edit-000\"); }\n",
+    "head_commit_ids": [
+      "2e586e6b60b25fa70a7c3c99709dc83ee996dc87",
+      "1ab4b4a7566e0d83a2e63645e1db723f6ac0bfdf",
+      "1ab4b4a7566e0d83a2e63645e1db723f6ac0bfdf"
+    ]
+  },
+  "headless_window_size_pixels": [
+    1100,
+    720
+  ],
+  "before_provenance": {
+    "head": "72d63ab6218210433c1da261ce41a3b5ee11f37e",
+    "source_hashes": {
+      "crates/fastdiff-gui/src/app.rs": "d1a674272c0bbf1fa72c5df37fdb1f538b2c065616b1aade9b4d9cbf4c1aa96f",
+      "crates/fastdiff-gui/src/worker.rs": "583ac8d97de24e2fecfa4ed75b0abc6add902ed6a0ca1b46a79ba63c68aacd27"
+    }
+  },
+  "before": {
+    "edit_poll_period_ms": 10,
+    "edit_to_headless_frame_ms": [
+      369.160162,
+      388.06617700000004,
+      369.572543,
+      377.031039,
+      395.856423,
+      375.81132099999996,
+      388.12593499999997,
+      400.134618,
+      386.25931,
+      361.427175,
+      375.485222,
+      367.35116899999997,
+      344.656181,
+      376.676749,
+      368.45777899999996,
+      367.527096,
+      350.60170899999997,
+      381.34117499999996,
+      361.036263,
+      367.69181000000003,
+      341.12048699999997,
+      374.393437,
+      336.336286,
+      356.661719,
+      384.28165199999995,
+      382.41096699999997,
+      383.059586,
+      402.485843,
+      340.57317,
+      338.49533599999995
+    ],
+    "edit_to_headless_frame_p95_ms": 400.134618,
+    "idle_frame_period_ms": 50,
+    "limitations": [
+      "Headless CPU includes fixed-cadence harness work; not native GUI CPU",
+      "Git shim adds identical before/after Bash process overhead",
+      "No WSL helper is involved",
+      "Frame output contains edited text; no compositor-present acknowledgement"
+    ],
+    "platform": "Linux WSL2; headless egui_kittest app+native worker; no helper",
+    "idle_samples": [
+      {
+        "cpu_ticks_user_system_children_user_children_system": [
+          299,
+          14,
+          36,
+          50
+        ],
+        "elapsed_seconds": 60.023273376,
+        "git_subprocess_count": 270,
+        "headless_frames": 1132,
+        "selected_tab": 0,
+        "tabs": 1,
+        "git_subprocesses_per_repository": {
+          "repo-0": 270
+        },
+        "git_commands": [
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= -c status.renames=true status --porcelain=v1 -z --untracked-files=all --ignore-submodules=none",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= cat-file -s :main.rs",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= config --null --name-only --get-regexp ^filter\\..*\\.(clean|process|required)$",
+            "count": 60
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= diff --no-ext-diff --no-textconv --no-color --unified=30 --find-renames --no-relative -- main.rs",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet @{upstream}^{commit}",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet HEAD^{commit}",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= symbolic-ref --quiet HEAD",
+            "count": 60
+          }
+        ],
+        "headless_app_cpu_seconds": 3.13,
+        "reaped_child_git_cpu_seconds": 0.86
+      },
+      {
+        "cpu_ticks_user_system_children_user_children_system": [
+          352,
+          27,
+          110,
+          149
+        ],
+        "elapsed_seconds": 60.000536054,
+        "git_subprocess_count": 810,
+        "headless_frames": 1116,
+        "selected_tab": 2,
+        "tabs": 3,
+        "git_subprocesses_per_repository": {
+          "repo-0": 270,
+          "repo-1": 270,
+          "repo-2": 270
+        },
+        "git_commands": [
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= -c status.renames=true status --porcelain=v1 -z --untracked-files=all --ignore-submodules=none",
+            "count": 90
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= cat-file -s :main.rs",
+            "count": 90
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= config --null --name-only --get-regexp ^filter\\..*\\.(clean|process|required)$",
+            "count": 180
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= diff --no-ext-diff --no-textconv --no-color --unified=30 --find-renames --no-relative -- main.rs",
+            "count": 90
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet @{upstream}^{commit}",
+            "count": 90
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet HEAD^{commit}",
+            "count": 90
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= symbolic-ref --quiet HEAD",
+            "count": 180
+          }
+        ],
+        "headless_app_cpu_seconds": 3.79,
+        "reaped_child_git_cpu_seconds": 2.59
+      }
+    ]
+  },
+  "after": {
+    "edit_poll_period_ms": 10,
+    "edit_to_headless_frame_ms": [
+      313.302731,
+      314.668687,
+      313.25783,
+      316.72976,
+      314.156238,
+      315.09504599999997,
+      316.19464200000004,
+      314.69817700000004,
+      314.353387,
+      313.825611,
+      313.504822,
+      314.483319,
+      314.609869,
+      316.223994,
+      314.32993,
+      313.776431,
+      313.647041,
+      316.03038399999997,
+      319.001056,
+      313.547052,
+      316.52687299999997,
+      314.21123,
+      318.253537,
+      316.390544,
+      318.189028,
+      317.38498,
+      329.056015,
+      322.084647,
+      314.949876,
+      320.470572
+    ],
+    "edit_to_headless_frame_p95_ms": 322.084647,
+    "idle_frame_period_ms": 50,
+    "limitations": [
+      "Headless CPU includes fixed-cadence harness work; not native GUI CPU",
+      "Git shim adds identical before/after Bash process overhead",
+      "No WSL helper is involved",
+      "Frame output contains edited text; no compositor-present acknowledgement"
+    ],
+    "platform": "Linux WSL2; headless egui_kittest app+native worker; no helper",
+    "idle_samples": [
+      {
+        "cpu_ticks_user_system_children_user_children_system": [
+          289,
+          17,
+          33,
+          45
+        ],
+        "elapsed_seconds": 60.026278557,
+        "git_subprocess_count": 270,
+        "headless_frames": 1141,
+        "selected_tab": 0,
+        "tabs": 1,
+        "git_subprocesses_per_repository": {
+          "repo-0": 270
+        },
+        "git_commands": [
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= -c status.renames=true status --porcelain=v1 -z --untracked-files=all --ignore-submodules=none",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= cat-file -s :main.rs",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= config --null --name-only --get-regexp ^filter\\..*\\.(clean|process|required)$",
+            "count": 60
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= diff --no-ext-diff --no-textconv --no-color --unified=30 --find-renames --no-relative -- main.rs",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet @{upstream}^{commit}",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet HEAD^{commit}",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= symbolic-ref --quiet HEAD",
+            "count": 60
+          }
+        ],
+        "headless_app_cpu_seconds": 3.06,
+        "reaped_child_git_cpu_seconds": 0.78
+      },
+      {
+        "cpu_ticks_user_system_children_user_children_system": [
+          329,
+          14,
+          34,
+          45
+        ],
+        "elapsed_seconds": 60.023360329,
+        "git_subprocess_count": 270,
+        "headless_frames": 1134,
+        "selected_tab": 2,
+        "tabs": 3,
+        "git_subprocesses_per_repository": {
+          "repo-0": 0,
+          "repo-1": 0,
+          "repo-2": 270
+        },
+        "git_commands": [
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= -c status.renames=true status --porcelain=v1 -z --untracked-files=all --ignore-submodules=none",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= cat-file -s :main.rs",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= config --null --name-only --get-regexp ^filter\\..*\\.(clean|process|required)$",
+            "count": 60
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= diff --no-ext-diff --no-textconv --no-color --unified=30 --find-renames --no-relative -- main.rs",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet @{upstream}^{commit}",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= rev-parse --verify --quiet HEAD^{commit}",
+            "count": 30
+          },
+          {
+            "arguments": "--no-pager --literal-pathspecs -c color.ui=false -c core.quotepath=false -c core.fsmonitor=false -c diff.external= symbolic-ref --quiet HEAD",
+            "count": 60
+          }
+        ],
+        "headless_app_cpu_seconds": 3.43,
+        "reaped_child_git_cpu_seconds": 0.79
+      }
+    ]
+  },
+  "interpretation_limits": [
+    "Pre-change production source was snapshotted before edits; both phases use the same fixture paths and measurement logic. Harness diagnostic-only differences are recorded separately.",
+    "Necessary compiler gates overlapped the baseline environment; raw CPU and latency vary with background workload and are not CPU speedup evidence.",
+    "The app runs at a fixed harness cadence rather than the native desktop event loop.",
+    "No native GUI or WSL helper CPU is measured; no Windows-to-WSL bridge is involved.",
+    "Edited text was observed in generated egui text shapes, not at compositor presentation."
+  ],
+  "measurement_harness_before_sha256": "72d49b22a336876f31c4f87708f33bcd1a85f21a7637ce27c9651f9df1462f20",
+  "measurement_harness_after_sha256": "092cddae9f2ce7c9dcb1163322717ee7ace7d71cd79f8685aa989c802c40d8da",
+  "harness_difference": "After: fail fast when Git log cannot be read; before logs were present and verified nonzero. Successful-log counting is unchanged. rustfmt also wrapped a progress-output line.",
+  "after_provenance": {
+    "head": "72d63ab6218210433c1da261ce41a3b5ee11f37e",
+    "source_hashes": {
+      "crates/fastdiff-gui/src/app.rs": "6067446b36135daeb8b0ad47206d13b7a12d3e656de3cb3f0de8b5650175028e",
+      "crates/fastdiff-gui/src/worker.rs": "95a5516a070426c37d87c456c2600129ac5c1870810e38bf3ee39f6a94c54533"
+    }
+  },
+  "p95_method": "Nearest rank: sorted samples[ceil(0.95 * n) - 1]; n=30 in each phase",
+  "git_count_result": {
+    "one_tab_before": 270,
+    "one_tab_after": 270,
+    "three_tabs_before": 810,
+    "three_tabs_after": 270,
+    "three_tab_reduction_percent": 66.66666666666667,
+    "inactive_repositories_after": {
+      "repo-0": 0,
+      "repo-1": 0
+    },
+    "active_repositories_unchanged_periodic_checks": true
+  },
+  "native_functional_smoke": {
+    "recorded_utc": "2026-10-11T02:16:45.578768+00:00",
+    "build": "Fresh debug binaries from settled production source; isolated IPC runtimes; installed applications preserved",
+    "source_sha256": {
+      "crates/fastdiff-gui/src/app.rs": "6067446b36135daeb8b0ad47206d13b7a12d3e656de3cb3f0de8b5650175028e",
+      "crates/fastdiff-gui/src/worker.rs": "95a5516a070426c37d87c456c2600129ac5c1870810e38bf3ee39f6a94c54533"
+    },
+    "helper_protocol": 4,
+    "linux": {
+      "platform": "Linux WSLg native X11/eframe Glow",
+      "pid": 65604,
+      "window": 8388612,
+      "telemetry_first_diff": {
+        "first_diff_ms": 237.21176599999998,
+        "first_frame_ms": 123.331489,
+        "max_frame_cpu_ms": 0.0,
+        "measured_frames": 0,
+        "pid": 65604,
+        "schema": 1,
+        "started_unix_ms": 1791684855018
+      },
+      "evidence": [
+        "linux-initial.png",
+        "linux-edit-1.png",
+        "linux-edit-2.png",
+        "linux-three-tabs.png",
+        "linux-activated.png"
+      ],
+      "normal_shutdown": true,
+      "shutdown": "WM_DELETE_WINDOW accepted; task-owned GUI exited",
+      "verified_markers": [
+        "linux-001",
+        "linux-002",
+        "linux-003"
+      ],
+      "verified_interactions": [
+        "repeated edits to already-modified selected file",
+        "three repository tabs",
+        "reopening inactive existing repo-0 displays linux-003",
+        "normal WM_DELETE_WINDOW closure"
+      ],
+      "limits": [
+        "Activation uses reopening an existing repository; pointer tab selection is covered by headless UI tests",
+        "No native comparative CPU or edit-latency performance sample"
+      ]
+    },
+    "windows_to_wsl": {
+      "normalShutdown": true,
+      "pid": 9744,
+      "evidence": [
+        "windows-initial.png",
+        "windows-edit-1.png",
+        "windows-edit-2.png",
+        "windows-three-tabs.png",
+        "windows-activation-loading.png",
+        "windows-activated.png",
+        "windows-selected-tab-closed.png"
+      ],
+      "platform": "Native Windows MSVC GUI to WSL2 Ubuntu protocol4 helper",
+      "title": "Diffcode",
+      "windowHandle": 1574118,
+      "verified_markers": [
+        "bridge-001",
+        "bridge-002",
+        "bridge-003"
+      ],
+      "verified_interactions": [
+        "repeated edits to already-modified selected file",
+        "three repository tabs",
+        "real mouse activation of inactive repo-0 displays bridge-003",
+        "selected-tab closure leaves repo-1 visible",
+        "normal GUI shutdown and helper exit"
+      ],
+      "limits": [
+        "Earlier-tab closure preserving an existing selected tab is covered by headless UI tests, not this native smoke",
+        "Activation spinner was not captured reliably; loading state is covered by app/UI tests",
+        "No native comparative CPU or edit-latency performance sample"
+      ]
+    },
+    "native_gui_helper_cpu_before_after": null,
+    "native_edit_to_visible_latency_before_after": null,
+    "evidence_directory": "target/lit1-measurement; PNGs and native reports retained locally",
+    "shutdown_verification": "Both task-owned apps closed normally; outside-sandbox process inspection confirmed no task helpers remain"
+  }
+}
