@@ -182,22 +182,12 @@ Application archives contain binaries and the bundled icon license: Linux has `b
 
 The focused packaging checks are `python3 -m unittest discover -s scripts -p 'test_app_package.py'` on Linux and `./scripts/test-package-windows.ps1` on Windows; they check exact archive contents and the bundled license contents using fixtures without compiling the app.
 
-The matching WSL helper must be built on Linux from the same source revision. After checksum verification, the installer creates local `build-info.json` metadata using the version, platform, and helper SHA-256 for pairing. Older archives containing source-revision metadata remain supported. The GitHub Actions workflow tests/builds each platform and produces paired archives; it uploads workflow artifacts and does not publish a release or alter any user configuration.
+The matching WSL helper must be built on Linux from the same source revision. After checksum verification, the installer creates local `build-info.json` metadata using the version, platform, and helper SHA-256 for pairing. Older archives containing source-revision metadata remain supported. The GitHub Actions workflow tests/builds each platform and produces paired archives and uploads them as workflow artifacts. A version tag additionally creates a draft GitHub Release (see [releasing](releasing.md)); the workflow never publishes a release or alters any user configuration.
 
 Compressed-package target: ≤40 MiB per platform. Actual archive sizes and native smoke results belong in [validation](validation.md); packaging alone does not establish the performance targets.
 
 ## Maintainer versioning and release
 
-For maintainers preparing a new release, replace `VERSION` with the new stable version and run from the checkout root:
-
-```bash
-python3 scripts/bump-version.py VERSION
-```
-
-The script checks current metadata consistency and updates the workspace version and its package entries in `Cargo.lock`. It leaves dependency versions alone, restores originals after failed writes, rejects lower versions, and treats repeating the current version as a no-op.
-
-Review the diff and run the release checks, then commit the versioned implementation. Create and push a fresh matching `v<version>` tag to run tagged CI. Do not move or recreate an existing release tag. Tagged GitHub CI builds the two paired binary archives and `SHA256SUMS` as the `release-assets` workflow artifact; it does not publish them. Download and review that matching artifact, then separately publish all three files to the matching stable GitHub Release. Setup availability follows publication of the complete release, not the version bump or tag alone.
-
-After both app archives are in `dist/`, run `python3 scripts/package-release.py --tag "v<version>"`, replacing the placeholder, to prepare checksums for the two binary archives. The script checks workspace and lockfile package versions against the tag. Use a new version for corrections to published releases; preserve old tags and assets.
+Versioning, release timing, the exact preparation, tagging, draft inspection, and publication steps, and recovery rules are in [releasing](releasing.md). Tagged CI produces a draft GitHub Release; nothing is available to the installer until a maintainer publishes it.
 
 Installer, skill, and documentation changes published to `main` require no app release. They are maintained in the repository independently of the binary archives.

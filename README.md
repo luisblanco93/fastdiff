@@ -101,7 +101,7 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 | `crates/fastdiff-gui` | egui/eframe application and rendering |
 | `install.py`, `scripts/` | Installer, runtime, packaging, benchmark tooling |
 | `skills/fastdiff` | Agent skill |
-| `docs/` | [Architecture](docs/architecture.md) · [usage](docs/usage.md) · [distribution](docs/distribution.md) · [performance](docs/performance.md) · [validation](docs/validation.md) |
+| `docs/` | [Architecture](docs/architecture.md) · [usage](docs/usage.md) · [distribution](docs/distribution.md) · [performance](docs/performance.md) · [validation](docs/validation.md) · [releasing](docs/releasing.md) |
 
 ## Contributing
 

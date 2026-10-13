@@ -61,7 +61,10 @@ class VersionTests(unittest.TestCase):
         for path, original in before.items():
             updated = path.read_bytes()
             if path != lock:
-                self.assertEqual(updated.replace(self.new.encode(), self.old.encode()), original)
+                self.assertEqual(
+                    updated.replace(f'version = "{self.new}"'.encode(), f'version = "{self.old}"'.encode()),
+                    original,
+                )
         after = self.snapshot()
         with patch.object(Path, "write_bytes", side_effect=AssertionError("no writes")):
             self.assertFalse(bump.bump_version(self.root, self.new))
@@ -82,7 +85,8 @@ class VersionTests(unittest.TestCase):
         cargo.write_bytes(original)
         self.assertTrue(bump.bump_version(self.root, self.new))
         self.assertEqual(
-            cargo.read_bytes(), original.replace(self.old.encode(), self.new.encode(), 1)
+            cargo.read_bytes(),
+            original.replace(f'version = "{self.old}"'.encode(), f'version = "{self.new}"'.encode(), 1),
         )
         self.assertEqual(packager.release_version(self.root, None), self.new)
 

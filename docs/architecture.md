@@ -14,7 +14,7 @@ In WSL, the Linux launcher locates the configured Windows executable, then PATH.
 
 ## Helper boundary
 
-Current 0.1.11 launcher, GUI, and WSL helper builds use protocol 5 and must be updated together from the same release/revision. Retained 0.1.7 artifacts use protocol 4 and work only as a matching set. Verify each launcher with `--version`; never bypass a helper mismatch. Historical release checks are recorded in [validation](validation.md).
+Current launcher, GUI, and WSL helper builds use protocol 5 and must be updated together from the same release/revision. Pre-1.0 `diffcode` 0.1.7 artifacts used protocol 4 and work only as a matching set. Verify each launcher with `--version`; never bypass a helper mismatch. Historical release checks are recorded in [validation](validation.md).
 
 The helper exchanges versioned, length-prefixed JSON over stdin/stdout. Frames have bounded size, request IDs, cancellation, and structured errors. An incompatible protocol version produces an actionable failure. Stdout belongs to the protocol; diagnostics go to stderr.
 

@@ -1,4 +1,4 @@
-# Reviewing changes in 0.1.11
+# Reviewing changes
 
 After [installation](distribution.md#install-fastdiff), run `dff` in the active repository, or pass a repository directory or text file. Manual app archives expose `fastdiff`, which accepts the same launch arguments. File arguments open full text, including clean and ignored files or files outside Git. `--file` selects a repository-relative filename; an unchanged selected file opens as full text. `--view` accepts `all`, `unstaged`, `staged`, or `unpushed`.
 
