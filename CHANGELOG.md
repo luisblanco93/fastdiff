@@ -4,7 +4,7 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
-## [1.0.0]
+## [1.0.0] - 2026-10-13
 
 First stable release of fastdiff, the read-only Git change viewer, published from this repository.
 
