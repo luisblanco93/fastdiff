@@ -196,3 +196,91 @@ fn watch_paths_cover_missing_external_includes_and_ignore_files() {
     assert!(paths.contains(&excludes));
     assert!(configurations.contains(&include));
 }
+
+#[test]
+fn batched_paths_split_into_exactly_the_expected_lines() {
+    use super::split_batched_paths;
+    assert_eq!(
+        split_batched_paths(b"/a\n/b\n", 2),
+        Some(vec![&b"/a"[..], &b"/b"[..]])
+    );
+    assert_eq!(split_batched_paths(b"/a\n/b", 2), None, "unterminated");
+    assert_eq!(
+        split_batched_paths(b"/a\nb\n/c\n", 2),
+        None,
+        "embedded newline"
+    );
+    assert_eq!(split_batched_paths(b"/a\n", 2), None, "missing line");
+    assert_eq!(split_batched_paths(b"/a\n\n", 2), None, "empty line");
+}
+
+#[cfg(unix)]
+#[test]
+fn watch_paths_fall_back_when_a_metadata_path_contains_a_newline() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("worktree");
+    let metadata = directory.path().join("meta\ndata");
+    fs::create_dir(&root).unwrap();
+    let output = Command::new("git")
+        .current_dir(&root)
+        .args(["init", "-q", "--separate-git-dir"])
+        .arg(&metadata)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let repository = Repository::discover(&root).unwrap();
+    let (paths, _) = repository.watch_paths(&CancelToken::default()).unwrap();
+    for expected in [
+        metadata.clone(),
+        metadata.join("HEAD"),
+        metadata.join("info/exclude"),
+    ] {
+        assert!(
+            contains_location(&paths, &expected),
+            "{expected:?} missing from {paths:?}"
+        );
+    }
+}
+
+#[test]
+fn metadata_paths_are_batched_and_match_the_per_path_queries() {
+    let (directory, _repository) = repository();
+    git(
+        directory.path(),
+        &[
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "--allow-empty",
+            "-q",
+            "-m",
+            "base",
+        ],
+    );
+    let linked = directory.path().join("linked");
+    git(
+        directory.path(),
+        &[
+            "worktree",
+            "add",
+            "-q",
+            linked.to_str().unwrap(),
+            "-b",
+            "topic",
+        ],
+    );
+    let cancel = CancelToken::default();
+    for root in [directory.path().to_path_buf(), linked] {
+        let repository = Repository::discover(&root).unwrap();
+        let batched = repository
+            .batched_metadata_paths(&cancel)
+            .unwrap()
+            .expect("plain paths must resolve in one rev-parse");
+        assert_eq!(
+            batched,
+            repository.sequential_metadata_paths(&cancel).unwrap()
+        );
+    }
+}
