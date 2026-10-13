@@ -543,6 +543,20 @@ impl Drop for Worker {
     }
 }
 
+/// Latest point at which a deferred watcher is built when no diff was requested.
+const WATCHER_DEFER_LIMIT: Duration = Duration::from_millis(1500);
+
+/// A deferred watcher is built once the first diff is shown, or at the deadline (counted from
+/// the first published status) when none is.
+fn watcher_due(
+    deferred: bool,
+    first_diff_shown: bool,
+    now: Instant,
+    deadline: Option<Instant>,
+) -> bool {
+    deferred && (first_diff_shown || deadline.is_some_and(|at| now >= at))
+}
+
 fn run(
     request: OpenRequest,
     receiver: Receiver<()>,
@@ -593,8 +607,19 @@ fn run_with_discovery(
     );
     let mut document_path =
         (request.target == OpenTarget::Document).then(|| request.repository.clone());
-    let mut watcher = request.wsl.is_none().then(|| {
-        watch::WatchCoverage::new(&backend, document_path.as_deref(), wake, &startup_cancel)
+    // Building the watcher costs hundreds of milliseconds on Windows and nothing needs it
+    // before the first diff is shown, so a repository review creates it afterwards. The 2 s
+    // poll covers the gap. Document targets still watch from the start.
+    let mut watcher_deferred = request.wsl.is_none() && document_path.is_none();
+    let mut watcher_deadline: Option<Instant> = None;
+    let mut first_diff_shown = false;
+    let mut watcher = (request.wsl.is_none() && !watcher_deferred).then(|| {
+        watch::WatchCoverage::new(
+            &backend,
+            document_path.as_deref(),
+            wake.clone(),
+            &startup_cancel,
+        )
     });
     if let Some(watcher) = &mut watcher {
         report_watch_diagnostics(watcher.take_diagnostics());
@@ -870,6 +895,7 @@ fn run_with_discovery(
                         },
                     );
                 }
+                first_diff_shown |= !token.is_cancelled();
             }
             Some((
                 Command::Search {
@@ -894,6 +920,27 @@ fn run_with_discovery(
         }
         if backend.needs_reconnect() {
             continue;
+        }
+        if watcher_due(
+            watcher_deferred,
+            first_diff_shown,
+            Instant::now(),
+            watcher_deadline,
+        ) && shared.pending.lock().is_ok_and(|pending| {
+            pending.work.is_none() && pending.reflog.is_none() && pending.search.is_none()
+        }) && let Some(token) = activate(&shared)
+        {
+            // A request that arrives mid-build cancels the token; keep deferring and retry.
+            if let Some(mut created) = watch::WatchCoverage::new_unless_cancelled(
+                &backend,
+                document_path.as_deref(),
+                wake.clone(),
+                &token,
+            ) {
+                report_watch_diagnostics(created.take_diagnostics());
+                watcher = Some(created);
+                watcher_deferred = false;
+            }
         }
         if watch_dirty.is_some_and(|at| Instant::now() >= at)
             && let Some(token) = activate(&shared)
@@ -1008,6 +1055,7 @@ fn run_with_discovery(
                                 document,
                             },
                         );
+                        first_diff_shown = true;
                     }
                     Err(error) if !token.is_cancelled() => emit(
                         &shared,
@@ -1059,6 +1107,8 @@ fn run_with_discovery(
                             },
                         );
                         explicit_refresh = false;
+                        watcher_deadline
+                            .get_or_insert_with(|| Instant::now() + WATCHER_DEFER_LIMIT);
                     }
                     drop((retired, previous, retired_events));
                 }
@@ -2112,6 +2162,27 @@ mod tests {
         assert!(changed.document.comparisons[0].patch.contains("bbbb"));
         assert!(!Arc::ptr_eq(&first, &changed));
         assert_eq!(wait_status(&worker, 5, true), refreshed);
+    }
+
+    #[test]
+    fn deferred_watcher_waits_for_the_first_diff_or_the_deadline() {
+        let start = Instant::now();
+        let deadline = Some(start + WATCHER_DEFER_LIMIT);
+        assert!(!watcher_due(true, false, start, deadline));
+        assert!(!watcher_due(
+            true,
+            false,
+            start + WATCHER_DEFER_LIMIT * 2,
+            None
+        ));
+        assert!(watcher_due(true, true, start, None));
+        assert!(watcher_due(
+            true,
+            false,
+            start + WATCHER_DEFER_LIMIT,
+            deadline
+        ));
+        assert!(!watcher_due(false, true, start, deadline));
     }
 
     #[test]

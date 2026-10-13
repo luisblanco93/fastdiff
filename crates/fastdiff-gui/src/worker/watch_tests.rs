@@ -339,3 +339,16 @@ fn absent_external_configuration_parents_are_covered_and_rebuilt() {
     fs::write(&include, "[user]\nname = Changed\n").unwrap();
     assert!(notification(&mut coverage, &receiver).rebuild);
 }
+
+#[test]
+fn deferred_build_cancelled_midway_is_discarded_for_a_retry() {
+    let (_directory, backend) = repository();
+    let (wake, _receiver) = mpsc::sync_channel(1);
+    let cancelled = CancelToken::default();
+    cancelled.cancel();
+    assert!(
+        WatchCoverage::new_unless_cancelled(&backend, None, wake.clone(), &cancelled).is_none()
+    );
+    let live = CancelToken::default();
+    assert!(WatchCoverage::new_unless_cancelled(&backend, None, wake, &live).is_some());
+}
