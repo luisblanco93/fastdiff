@@ -4,7 +4,28 @@ This page indexes validation evidence for fastdiff. Record evidence for a releas
 
 ## Current release
 
-No release has been published from this repository yet. The first release validation record goes here, using the template below.
+### Release 1.0.0
+
+Recorded 2026-10-13 from revision `170e81d65650d81dcc65e00069330460217996d9`. Tagged CI run: [38480276396](https://github.com/luisblanco93/fastdiff/actions/runs/38480276396), dispatched on the `v1.0.0` tag after the push-triggered run was deleted.
+
+#### Checks run
+- CI on Ubuntu 22.04 and Windows (Rust 1.90, Python 3.11): fmt, clippy `-D warnings`, workspace tests, coverage, release build, and packaging passed. The `draft-release` job verified three assets, their checksums, archive contents, and byte-identical paired WSL helpers.
+- Downloaded the three release assets and verified both archives against `SHA256SUMS` with `sha256sum -c`.
+- Linux x86_64 archive on WSL2 Ubuntu: `fastdiff --version` printed `fastdiff 1.0.0 (helper protocol 5)` and `--help` ran.
+- Windows x86_64 archive on native Windows 11: `fastdiff.exe --version` printed `fastdiff 1.0.0 (helper protocol 5)` and `--help` ran.
+- Paired WSL helper (`wsl/fastdiff` from the Windows archive): same SHA-256 under Windows and WSL, and `--version` printed `fastdiff 1.0.0 (helper protocol 5)`.
+- Native Windows startup: 30 cold launches on the LIT-26 tree, median first diff 933 ms (see the README and [benchmark-windows-native.json](benchmark-windows-native.json)).
+
+#### Artifact verification
+| Archive | Bytes | SHA-256 |
+|---|---:|---|
+| `fastdiff-1.0.0-linux-x64.tar.gz` | 5,471,173 | `07743c7a0908289796af90851d8fe2d1c62f8840007defb8e06a815bb89995d9` |
+| `fastdiff-1.0.0-windows-x64.zip` | 3,990,627 | `cc2b26dab8a0d79dafb2127d0f1f307aee30cc13b6c724d719ef320a24b92e7e` |
+
+#### Limits
+- No interactive window was opened from the release archives on Linux, native Windows, or Windows-to-WSL; the native-window smoke checks ran in CI only. A Windows window opening a WSL repository through the paired helper was not exercised on the release build.
+- The Windows startup benchmark used the LIT-26 tree before the final merge and CI fix, not the tagged binary, and is a single run.
+- Linux and WSL startup numbers were not re-measured for 1.0.0.
 
 ### Template
 
