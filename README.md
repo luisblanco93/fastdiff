@@ -16,6 +16,30 @@
   <img src="docs/assets/review.png" alt="fastdiff showing a side-by-side diff with separate Staged and Unstaged sections and a changed-file tree" width="900">
 </p>
 
+> ## 🤖 Using a coding agent? Paste this one prompt.
+>
+> ```text
+> Install fastdiff from https://github.com/luisblanco93/fastdiff — do NOT clone the repo,
+> download a source archive, or build with Rust.
+>
+> 1. Read https://raw.githubusercontent.com/luisblanco93/fastdiff/main/docs/distribution.md
+>    and run the Python one-liner under "Install fastdiff" for my platform
+>    (Linux/WSL2 or Windows). It downloads the released binaries and installs `dff`.
+> 2. Download https://raw.githubusercontent.com/luisblanco93/fastdiff/main/skills/fastdiff/SKILL.md
+>    and save it as `fastdiff/SKILL.md` in your user-level skills directory
+>    (Claude Code: ~/.claude/skills/fastdiff/SKILL.md, Codex/OpenCode: ~/.agents/skills/fastdiff/SKILL.md).
+>    Never overwrite an existing file; report a conflict instead.
+> 3. Reload your skills and apply any PATH guidance the installer prints.
+>    Confirm with `command -v dff`.
+> 4. Do NOT launch fastdiff yourself. Finish by telling me exactly how to open it:
+>    - In this session, type `! dff` (opens the current repo; `! dff /path/to/repo` for another one).
+>    - Or run `dff` from any terminal inside a Git repository.
+>    - Useful variants: `dff . --view staged`, `dff . --view unpushed`, `dff notes.txt`.
+>    - If `dff` isn't found, give me the PATH line the installer printed.
+> ```
+>
+> Nothing is cloned: the installer fetches only a few raw files and the release archive, and checks it against `SHA256SUMS`.
+
 | | Launch → first frame | Launch → first diff |
 | --- | --- | --- |
 | **Linux window** | **73 ms** median · 192 ms worst | **181 ms** median · 331 ms worst |
