@@ -36,7 +36,7 @@ Recorded 2026-10-06: 30 cold launches each on an earlier build, 2-file repositor
 
 fastdiff needs Python 3.11+ for the installer; the app itself needs no runtime, GitHub CLI, or Rust toolchain.
 
-> **Status:** no release has been published from this repository yet. Until the first release, [build from source](#build-from-source). Once a release exists, the installer in [docs/distribution.md](docs/distribution.md#install-fastdiff) downloads the latest one and installs the terminal command `dff`.
+Releases are published. Install the latest one with the command for your platform in [docs/distribution.md](docs/distribution.md#install-fastdiff); it downloads the compiled release and installs the terminal command `dff`. Do not clone the repository or build from source to install: [build from source](#build-from-source) is for contributors, or for the rare case where the installer itself reports that no release exists.
 
 ## Use
 

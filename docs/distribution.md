@@ -1,6 +1,6 @@
 # fastdiff installation
 
-This is the single installation guide for users and coding agents. Use the released packages: no repository clone, source archive, Rust toolchain, or development tests are needed. If no release has been published yet, the installer cannot succeed; build from source as described in the [README](../README.md#build-from-source) instead. Follow the command block for the current platform; the current installer handles the compiled application independently of app releases.
+This is the single installation guide for users and coding agents. Use the released packages: no repository clone, source archive, Rust toolchain, or development tests are needed. Releases are published, so do not build from source to install. Follow the command block for the current platform; the current installer handles the compiled application independently of app releases.
 
 For an agent handling an app installation request: execute this recipe directly and report the installer result. For a skill-only request, follow [Agent skill](#agent-skill); do not run this app installer. Do not create a separate installation plan or perform repository development work.
 
@@ -8,7 +8,7 @@ For an agent handling an app installation request: execute this recipe directly 
 
 ## Install fastdiff
 
-Requires Python 3.11+ and HTTPS access to `luisblanco93/fastdiff` and its [releases](https://github.com/luisblanco93/fastdiff/releases). The repository is public, so no GitHub account, token, or GitHub CLI is needed. The installer downloads the latest stable release; until the first release is published, build from source (see the [README](../README.md#build-from-source)). Preserve existing installations on download failure. Supported environments are Linux x64 with glibc and X11/Wayland plus OpenGL, native Windows x64, and WSL2 with Windows interoperability, `powershell.exe`, and `wslpath`. Git is needed only for reviewing repositories.
+Requires Python 3.11+ and HTTPS access to `luisblanco93/fastdiff` and its [releases](https://github.com/luisblanco93/fastdiff/releases). The repository is public, so no GitHub account, token, or GitHub CLI is needed. The installer downloads the latest stable release. Preserve existing installations on download failure. Supported environments are Linux x64 with glibc and X11/Wayland plus OpenGL, native Windows x64, and WSL2 with Windows interoperability, `powershell.exe`, and `wslpath`. Git is needed only for reviewing repositories.
 
 Run one command for your platform to install terminal `dff`.
 
