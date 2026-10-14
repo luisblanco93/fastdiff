@@ -1186,6 +1186,22 @@ fn unchanged_requested_file_opens_full_text_without_selecting_other_changes() {
 }
 
 #[test]
+fn windows_document_path_uses_one_separator_for_nested_git_paths() {
+    assert_eq!(
+        join_document_path(
+            r"\\?\C:\repo",
+            ".agents/skills/speckit-checklist/SKILL.md",
+            '\\'
+        ),
+        r"\\?\C:\repo\.agents\skills\speckit-checklist\SKILL.md"
+    );
+    assert_eq!(
+        join_document_path("/repo/", "src/main.rs", '/'),
+        "/repo/src/main.rs"
+    );
+}
+
+#[test]
 fn document_status_refresh_keeps_document_contents_and_selection() {
     let mut tab = fixture();
     tab.document_mode = true;
