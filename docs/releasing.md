@@ -58,7 +58,7 @@ Every step that writes outside the working tree (push, tag, publish) needs the m
    cargo build --release --locked --workspace
    ```
    Run the packaging and native checks on Windows itself (`./scripts/test-package-windows.ps1`, `./scripts/package-windows.ps1`); a Linux pass does not verify Windows.
-4. **Integrate**: merge the pull request after the Linux and Windows CI checks pass.
+4. **Integrate**: merge the pull request. CI does not run for pull requests or merges to `main`; the local checks above are the gate, and the tagged CI run below is the release gate.
 5. **Tag** the merged commit with a new annotated tag, then push it:
    ```bash
    git tag -a vX.Y.Z -m "fastdiff X.Y.Z" <commit>
