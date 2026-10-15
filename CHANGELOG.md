@@ -10,6 +10,10 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 - A macOS (Apple Silicon) build: a `fastdiff-<version>-macos-arm64.tar.gz` release archive that the installer sets up as `dff`. Shortcuts use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> on macOS. The macOS binaries are not signed or notarized.
 
+### Changed
+
+- Unpushed works on a branch without an upstream: it lists the commits that are not on another local or remote-tracking branch, and shows the whole history of a branch that has no other branch to compare with. Previously the view stayed empty with a "no configured upstream" notice. Nothing is fetched, so remote branches deleted on the server but not pruned locally still count as pushed.
+
 ### Fixed
 
 - The window chrome, including the native title bar, stays dark when the system appearance is light, instead of a light frame around dark diff panes.

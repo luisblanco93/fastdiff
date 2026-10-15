@@ -312,6 +312,11 @@ fn helper_operation_metadata_stays_lazy_for_unavailable_and_summaries() {
         panic!("expected unborn status")
     };
     assert!(files.is_empty() && notice.unwrap().contains("no commit"));
+    assert_eq!(
+        recorded_count(commands.path(), filter_query),
+        0,
+        "unborn status never probes filters"
+    );
     git(directory.path(), &["config", "user.name", "Diff test"]);
     git(
         directory.path(),
@@ -329,7 +334,43 @@ fn helper_operation_metadata_stays_lazy_for_unavailable_and_summaries() {
     let HelperResponse::Status { files, notice } = response(&mut child).response else {
         panic!("expected no-upstream status")
     };
-    assert!(files.is_empty() && notice.unwrap().contains("no configured upstream"));
+    assert_eq!(files.len(), 1);
+    assert!(notice.unwrap().contains("whole history"));
+    let whole_history_probes = recorded_count(commands.path(), filter_query);
+    assert!(
+        whole_history_probes <= 1,
+        "the whole-history diff probes the filter config at most once, saw {whole_history_probes}"
+    );
+    // All only points at the Unpushed view, so it must not run the boundary search.
+    send(&mut child, 30, HelperRequest::Status { view: View::All });
+    let HelperResponse::Status { notice, .. } = response(&mut child).response else {
+        panic!("expected whole-history All status")
+    };
+    assert!(notice.unwrap().contains("open the Unpushed view"));
+    assert_eq!(
+        recorded_count(commands.path(), "--branches --remotes"),
+        0,
+        "a single-branch repository never runs the boundary search"
+    );
+    // Positive control: with another branch the same Unpushed request does search.
+    git(directory.path(), &["branch", "other"]);
+    send(
+        &mut child,
+        31,
+        HelperRequest::Status {
+            view: View::Unpushed,
+        },
+    );
+    let HelperResponse::Status { files, notice } = response(&mut child).response else {
+        panic!("expected fallback status")
+    };
+    assert!(files.is_empty() && notice.unwrap().contains("not on another"));
+    assert_eq!(
+        recorded_count(commands.path(), "--branches --remotes"),
+        1,
+        "the boundary search runs once when another branch exists"
+    );
+    let probes_before_detached = recorded_count(commands.path(), filter_query);
     git(directory.path(), &["checkout", "--detach", "-q"]);
     send(
         &mut child,
@@ -344,8 +385,8 @@ fn helper_operation_metadata_stays_lazy_for_unavailable_and_summaries() {
     assert!(files.is_empty() && notice.unwrap().contains("detached"));
     assert_eq!(
         recorded_count(commands.path(), filter_query),
-        0,
-        "unborn, no-upstream, and detached status never probe filters"
+        probes_before_detached,
+        "detached status never probes filters"
     );
 
     fs::write(directory.path().join("untracked.rs"), "changed\n").unwrap();
@@ -361,9 +402,10 @@ fn helper_operation_metadata_stays_lazy_for_unavailable_and_summaries() {
     };
     let change = files.remove(0);
     let status_filter_probes = recorded_count(commands.path(), filter_query);
+    let working_probes = status_filter_probes - probes_before_detached;
     assert!(
-        status_filter_probes <= 1,
-        "working status probes the filter config at most once, saw {status_filter_probes}"
+        working_probes <= 1,
+        "working status probes the filter config at most once, saw {working_probes}"
     );
     fs::write(
         directory.path().join("untracked.rs"),

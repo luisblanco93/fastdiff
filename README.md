@@ -79,7 +79,7 @@ From a source build, run `fastdiff` with the same arguments; `dff` is the comman
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/unpushed.png" alt="Unpushed view listing the net change of local commits"><br><sub><b>Unpushed.</b> The net change of your local commits against the last fetched upstream.</sub></td>
+    <td width="50%"><img src="docs/assets/unpushed.png" alt="Unpushed view listing the net change of local commits"><br><sub><b>Unpushed.</b> The net change of your local commits against the last fetched upstream, or against your other branches when there is none.</sub></td>
     <td width="50%"><img src="docs/assets/reflog.png" alt="Reflog panel below the file tree showing HEAD history"><br><sub><b>Reflog.</b> HEAD history under the file tree, <kbd>Ctrl</kbd>+<kbd>5</kbd>.</sub></td>
   </tr>
   <tr>
