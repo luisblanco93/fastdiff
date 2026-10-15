@@ -1,3 +1,4 @@
+use super::test_support::expect_signal;
 use super::*;
 
 const WAIT: Duration = Duration::from_secs(5);
@@ -27,8 +28,9 @@ fn retirement_returns_while_worker_cleanup_is_blocked() {
         let _ = returned.send(());
         handle
     });
-    let cleanup_blocked = cleanup_started.recv_timeout(WAIT).is_ok();
-    let returned_before_release = retirement_returned.recv_timeout(WAIT).is_ok();
+    let cleanup_blocked = expect_signal(&cleanup_started, "worker cleanup started", WAIT).is_ok();
+    let returned_before_release =
+        expect_signal(&retirement_returned, "worker retirement returned", WAIT).is_ok();
     let cancelled_before_release = token.is_cancelled();
     let _ = wake.try_send(());
     let _ = release.send(());
@@ -79,7 +81,7 @@ fn retirement_wakes_inactive_worker_waiting_for_a_request() {
     worker.shared.initialized.store(true, Ordering::Release);
     let wake = worker.wake.clone();
     let retirement = thread::spawn(move || worker.retire());
-    let woke = cleanup_started.recv_timeout(WAIT).is_ok();
+    let woke = expect_signal(&cleanup_started, "inactive worker cleanup started", WAIT).is_ok();
     let _ = wake.try_send(());
     let _ = release.send(());
     let handle = retirement.join().expect("retirement thread panicked");
@@ -108,13 +110,13 @@ fn drop_waits_until_worker_cleanup_is_released() {
         drop(worker);
         let _ = finished.send(());
     });
-    let cleanup_blocked = cleanup_started.recv_timeout(WAIT).is_ok();
+    let cleanup_blocked = expect_signal(&cleanup_started, "worker cleanup started", WAIT).is_ok();
     let waited_for_cleanup = dropped.recv_timeout(Duration::from_millis(50)).is_err();
     let cancelled_before_release = token.is_cancelled();
     let _ = wake.try_send(());
     let _ = release.send(());
     drop_thread.join().expect("worker drop panicked");
-    let dropped_after_release = dropped.recv_timeout(WAIT).is_ok();
+    let dropped_after_release = expect_signal(&dropped, "worker drop finished", WAIT).is_ok();
     assert!(cleanup_blocked);
     assert!(waited_for_cleanup);
     assert!(cancelled_before_release);

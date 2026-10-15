@@ -1,4 +1,5 @@
 use super::*;
+use crate::worker::test_support::expect_signal;
 use std::sync::mpsc;
 
 fn private_directory() -> tempfile::TempDir {
@@ -35,7 +36,8 @@ fn incoming_ipc_request_wakes_registered_gui_context() {
 
     assert!(fastdiff_cli::forward_at(directory.path(), &request).unwrap());
     assert_eq!(
-        notifications.recv_timeout(Duration::from_secs(2)).unwrap(),
+        expect_signal(&notifications, "IPC repaint", Duration::from_secs(2))
+            .unwrap_or_else(|failure| panic!("{failure}")),
         Duration::ZERO
     );
     assert!(context.has_requested_repaint());

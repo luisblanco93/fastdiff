@@ -1,7 +1,10 @@
 use super::*;
 use crate::{
     sidebar::TreeModel,
-    worker::{PreparedDocument, test_support::ProgressGuard},
+    worker::{
+        PreparedDocument,
+        test_support::{ProgressGuard, poll_until},
+    },
 };
 use egui_kittest::{
     Harness,
@@ -13,6 +16,28 @@ use std::sync::Arc;
 /// Hang guard for polling loops, not a speed requirement: hosts vary widely in how long a
 /// repository load takes.
 const WAIT_LIMIT: Duration = Duration::from_secs(30);
+
+fn advance_tab_load(
+    guard: &mut ProgressGuard,
+    tab: &ReviewTab,
+    initial_files: &Arc<Vec<FileChange>>,
+) {
+    if tab.root != "/repo" {
+        guard.advance("repository discovered");
+    }
+    if tab.branch.is_some() {
+        guard.advance("branch received");
+    }
+    if !Arc::ptr_eq(initial_files, &tab.files) {
+        guard.advance("status received");
+    }
+    if tab.provisional {
+        guard.advance("provisional document received");
+    }
+    if tab.presentation.is_some() {
+        guard.advance("presentation received");
+    }
+}
 
 pub(super) fn fixture() -> ReviewTab {
     let path = GitPath(b"src/main.rs".to_vec());
@@ -207,15 +232,14 @@ fn rapid_tab_open_preserves_discovery_and_refreshes_the_paused_repository() {
             app.open(request, &context);
             assert!(app.tabs[index].loading);
         }
-        let deadline = std::time::Instant::now() + WAIT_LIMIT;
-        while app.tabs[index].loading {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "Tab {index} failed to load"
-            );
+        let initial_files = Arc::clone(&app.tabs[index].files);
+        poll_until(format!("tab {index} load"), WAIT_LIMIT, |guard| {
             app.poll(&context);
-            std::thread::sleep(Duration::from_millis(10));
-        }
+            let tab = &app.tabs[index];
+            advance_tab_load(guard, tab, &initial_files);
+            (!tab.loading).then_some(())
+        })
+        .unwrap_or_else(|failure| panic!("{failure}"));
         let tab = &app.tabs[index];
         assert!(tab.error.is_none(), "{:?}", tab.error);
         assert!(
@@ -710,11 +734,12 @@ fn restarted_worker_reports_discovery_failure() {
         if restart {
             tab.refresh();
         }
-        let deadline = std::time::Instant::now() + WAIT_LIMIT;
-        while !tab.worker.as_ref().unwrap().is_finished() {
-            assert!(std::time::Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(10));
-        }
+        poll_until(
+            format!("discovery worker termination, restart={restart}"),
+            WAIT_LIMIT,
+            |_| tab.worker.as_ref().unwrap().is_finished().then_some(()),
+        )
+        .unwrap_or_else(|failure| panic!("{failure}"));
     }
     tab.events(false);
     assert!(tab.error.is_some());
@@ -804,21 +829,7 @@ fn restarted_document_worker_replays_selected_display_mode() {
             if !tab.loading {
                 break;
             }
-            if tab.root != "/repo" {
-                reload.advance("repository discovered");
-            }
-            if tab.branch.is_some() {
-                reload.advance("branch received");
-            }
-            if !Arc::ptr_eq(&initial_files, &tab.files) {
-                reload.advance("status received");
-            }
-            if tab.provisional {
-                reload.advance("provisional document received");
-            }
-            if tab.presentation.is_some() {
-                reload.advance("presentation received");
-            }
+            advance_tab_load(&mut reload, &tab, &initial_files);
             reload.check(tab.worker.as_ref().unwrap().is_finished());
             std::thread::sleep(Duration::from_millis(10));
         }
@@ -1575,19 +1586,22 @@ fn restarted_worker_restores_reflog_and_file_changes() {
         .to_string_lossy()
         .into_owned();
     tab.worker = Some(Worker::spawn(tab.request.clone(), tab.context.clone()));
-    let deadline = std::time::Instant::now() + WAIT_LIMIT;
-    while !tab.worker.as_ref().unwrap().is_finished() {
-        assert!(std::time::Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(10));
-    }
+    poll_until(
+        "old worker termination before reflog reload",
+        WAIT_LIMIT,
+        |_| tab.worker.as_ref().unwrap().is_finished().then_some(()),
+    )
+    .unwrap_or_else(|failure| panic!("{failure}"));
     tab.request.repository = directory.path().to_string_lossy().into_owned();
     tab.reflog_open = true;
     tab.refresh();
-    while tab.loading || tab.reflog_loading {
-        assert!(std::time::Instant::now() < deadline);
+    let initial_files = Arc::clone(&tab.files);
+    poll_until("reflog and file changes reload", WAIT_LIMIT, |guard| {
         tab.events(false);
-        std::thread::sleep(Duration::from_millis(10));
-    }
+        advance_tab_load(guard, &tab, &initial_files);
+        (!tab.loading && !tab.reflog_loading).then_some(())
+    })
+    .unwrap_or_else(|failure| panic!("{failure}"));
     assert!(tab.error.is_none(), "{:?}", tab.error);
     assert!(tab.reflog_open);
     assert_eq!(tab.branch.as_deref(), Some("main"));
@@ -1779,15 +1793,11 @@ fn startup_and_ipc_requests_enable_window_theme() {
             ..request
         };
         assert!(fastdiff_cli::forward_at(directory.path(), &forwarded).unwrap());
-        let deadline = std::time::Instant::now() + WAIT_LIMIT;
-        loop {
+        poll_until("forwarded window theme", WAIT_LIMIT, |_| {
             app.poll(&context);
-            if app.preferences.theme {
-                break;
-            }
-            assert!(std::time::Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(5));
-        }
+            app.preferences.theme.then_some(())
+        })
+        .unwrap_or_else(|failure| panic!("{failure}"));
         assert_eq!(app.tabs.len(), 1);
     }
 }

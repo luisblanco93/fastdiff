@@ -1,11 +1,7 @@
+use super::super::test_support::poll_until;
 use super::*;
 use notify::event::{DataChange, Flag, ModifyKind, RenameMode};
-use std::{
-    fs,
-    process::Command,
-    sync::mpsc,
-    time::{Duration, Instant},
-};
+use std::{fs, process::Command, sync::mpsc, time::Duration};
 
 fn git(root: &Path, args: &[&str]) {
     let output = Command::new("git")
@@ -63,22 +59,20 @@ fn event(path: PathBuf) -> notify::Event {
 }
 
 fn notification(coverage: &mut WatchCoverage, receiver: &mpsc::Receiver<()>) -> WatchChange {
-    let deadline = Instant::now() + Duration::from_secs(3);
-    loop {
-        assert!(
-            Instant::now() < deadline,
-            "native notification was not received"
-        );
+    poll_until("native notification", Duration::from_secs(3), |guard| {
         let _ = receiver.recv_timeout(Duration::from_millis(50));
         if coverage.take_received() {
+            guard.advance("notification received");
             std::thread::sleep(Duration::from_millis(30));
             coverage.take_received();
             let change = coverage.take_pending(&CancelToken::default());
             if change.relevant {
-                return change;
+                return Some(change);
             }
         }
-    }
+        None
+    })
+    .unwrap_or_else(|failure| panic!("{failure}"))
 }
 
 #[test]

@@ -69,6 +69,47 @@ impl ProgressGuard {
     }
 }
 
+/// Polls state until complete; only new milestones reset the silence budget.
+pub(crate) fn poll_until<T>(
+    expected: impl Into<String>,
+    budget: Duration,
+    mut poll: impl FnMut(&mut ProgressGuard) -> Option<T>,
+) -> Result<T, String> {
+    let mut guard = ProgressGuard::new(expected, budget);
+    loop {
+        if let Some(value) = poll(&mut guard) {
+            return Ok(value);
+        }
+        if let Some(failure) = guard.timeout_at(Instant::now(), false) {
+            return Err(failure);
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// Receives a handshake, failing immediately if its producer disconnects.
+pub(crate) fn expect_signal<T>(
+    receiver: &Receiver<T>,
+    expected: impl Into<String>,
+    budget: Duration,
+) -> Result<T, String> {
+    let guard = ProgressGuard::new(expected, budget);
+    loop {
+        let remaining = budget.saturating_sub(guard.last_progress.elapsed());
+        match receiver.recv_timeout(remaining.min(Duration::from_millis(10))) {
+            Ok(value) => return Ok(value),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(guard.failure("producer exited without signalling", true));
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if let Some(failure) = guard.timeout_at(Instant::now(), false) {
+                    return Err(failure);
+                }
+            }
+        }
+    }
+}
+
 pub(super) enum EventProgress {
     Ignore,
     Advance(String),
@@ -280,6 +321,75 @@ pub(super) fn wait_reflog(worker: &Worker, generation: u64) -> ReflogList {
         unreachable!()
     };
     list
+}
+
+#[test]
+fn polling_progress_can_exceed_the_total_budget() {
+    let budget = Duration::from_millis(100);
+    let start = Instant::now();
+    let mut step = 0;
+    let value = poll_until("state load", budget, |guard| {
+        if step == 5 {
+            return Some(step);
+        }
+        thread::sleep(Duration::from_millis(30));
+        guard.advance(format!("step {step}"));
+        step += 1;
+        None
+    })
+    .unwrap();
+    assert_eq!(value, 5);
+    assert!(start.elapsed() > budget);
+}
+
+#[test]
+fn silent_polling_returns_timeout_context() {
+    let failure =
+        poll_until::<()>("silent state", Duration::from_millis(50), |_| None).unwrap_err();
+    assert!(failure.contains("silent state"));
+    assert!(failure.contains("no new progress"));
+    assert!(failure.contains("last milestone: none"));
+}
+
+#[test]
+fn polling_duplicate_milestone_does_not_extend_the_budget() {
+    let budget = Duration::from_millis(50);
+    let failure = poll_until::<()>("stalled state", budget, |guard| {
+        guard.advance_at("same state".into(), Instant::now() - budget);
+        assert!(!guard.advance("same state"));
+        None
+    })
+    .unwrap_err();
+    assert!(failure.contains("stalled state"));
+    assert!(failure.contains("last milestone: same state"));
+}
+
+#[test]
+fn handshake_returns_the_signal_value() {
+    let (sender, receiver) = mpsc::channel();
+    sender.send(7).unwrap();
+    assert_eq!(expect_signal(&receiver, "token", WAIT).unwrap(), 7);
+}
+
+#[test]
+fn handshake_disconnect_fails_before_the_budget() {
+    let (sender, receiver) = mpsc::channel::<()>();
+    drop(sender);
+    let start = Instant::now();
+    let failure = expect_signal(&receiver, "startup signal", WAIT).unwrap_err();
+    assert!(start.elapsed() < WAIT);
+    assert!(failure.contains("startup signal"));
+    assert!(failure.contains("producer exited without signalling"));
+}
+
+#[test]
+fn silent_handshake_returns_timeout_context() {
+    let (_sender, receiver) = mpsc::channel::<()>();
+    let failure =
+        expect_signal(&receiver, "cleanup signal", Duration::from_millis(50)).unwrap_err();
+    assert!(failure.contains("cleanup signal"));
+    assert!(failure.contains("no new progress"));
+    assert!(failure.contains("last milestone: none"));
 }
 
 #[test]
