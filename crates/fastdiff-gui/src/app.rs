@@ -529,6 +529,7 @@ pub struct Fastdiff {
     server: Option<IpcServer>,
     benchmark: Benchmark,
     help_open: bool,
+    fallback_fonts: crate::fallback_fonts::Watch,
 }
 
 /// fastdiff has one dark theme. `set_visuals` only writes the active theme, so pin the theme
@@ -536,6 +537,8 @@ pub struct Fastdiff {
 fn apply_theme(context: &egui::Context) {
     context.set_theme(egui::Theme::Dark);
     context.set_visuals(egui::Visuals::dark());
+    // The native title bar is outside egui's visuals and follows the system appearance.
+    context.send_viewport_cmd(egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark));
 }
 
 impl Fastdiff {
@@ -562,6 +565,42 @@ impl Fastdiff {
             server: Some(server),
             benchmark,
             help_open: false,
+            fallback_fonts: crate::fallback_fonts::Watch::default(),
+        }
+    }
+
+    /// Installs a system CJK font the first time a path or diff row needs one.
+    fn ensure_fallback_fonts(&mut self, context: &egui::Context) {
+        if self.fallback_fonts.is_done() {
+            return;
+        }
+        for (index, tab) in self.tabs.iter().enumerate() {
+            let files = Arc::as_ptr(&tab.files) as usize;
+            let document = tab.presentation.as_ref().map_or(0, |presentation| {
+                Arc::as_ptr(&presentation.document) as usize
+            });
+            if !self.fallback_fonts.changed(index, files, document) {
+                continue;
+            }
+            let paths = tab.files.iter().map(|file| file.path.display());
+            let names: Vec<String> = paths.collect();
+            let mut texts: Vec<&str> = names.iter().map(String::as_str).collect();
+            texts.push(&tab.root);
+            if let Some(presentation) = &tab.presentation {
+                for comparison in &presentation.document.document.comparisons {
+                    texts.push(&comparison.label);
+                    for row in &comparison.rows {
+                        texts.push(&row.left);
+                        texts.push(&row.right);
+                    }
+                }
+            }
+            if crate::fallback_fonts::missing_glyphs(context, texts) {
+                crate::fallback_fonts::install(context);
+                self.fallback_fonts.finish();
+                context.request_repaint();
+                return;
+            }
         }
     }
 
@@ -1313,6 +1352,7 @@ impl eframe::App for Fastdiff {
     fn update(&mut self, context: &egui::Context, frame: &mut eframe::Frame) {
         self.benchmark.record_frame(frame.info().cpu_usage);
         self.poll(context);
+        self.ensure_fallback_fonts(context);
         self.show(context);
         self.collect_finished_workers(context);
         if !context.will_discard() {

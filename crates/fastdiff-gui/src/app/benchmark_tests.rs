@@ -10,6 +10,7 @@ fn app(report: &Path) -> Fastdiff {
         server: None,
         benchmark: crate::benchmark::tests::reporting(report.to_path_buf()),
         help_open: false,
+        fallback_fonts: Default::default(),
         retired_workers: Vec::new(),
     }
 }

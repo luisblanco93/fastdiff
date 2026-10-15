@@ -10,7 +10,8 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ### Fixed
 
-- The window chrome stays dark when the system appearance is light, instead of a light frame around dark diff panes.
+- The window chrome, including the native title bar, stays dark when the system appearance is light, instead of a light frame around dark diff panes.
+- File names and diff text in Chinese, Japanese, or Korean show the characters instead of empty boxes. A system CJK font is loaded only when such text appears, so other repositories pay no startup cost.
 
 ## [1.0.1] - 2026-10-15
 

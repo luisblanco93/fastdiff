@@ -69,6 +69,7 @@ fn lit1_refresh_measurement() {
             server: None,
             benchmark: Benchmark::new(false),
             help_open: false,
+            fallback_fonts: Default::default(),
             retired_workers: Vec::new(),
         };
         let mut harness = Harness::builder()
@@ -134,6 +135,7 @@ fn lit1_refresh_measurement() {
         server: None,
         benchmark: Benchmark::new(false),
         help_open: false,
+        fallback_fonts: Default::default(),
         retired_workers: Vec::new(),
     };
     let mut harness = Harness::builder()
