@@ -226,7 +226,43 @@ fn config_variable_paths(
 ) -> Result<Vec<PathBuf>> {
     let mut command = git_command(root);
     command.args(["var", variable]);
-    parse_paths(&checked(run(command, 64 * 1024, cancel)?)?)
+    match run(command, 64 * 1024, cancel).and_then(checked) {
+        Ok(output) => parse_paths(&output),
+        Err(Error::Cancelled) => Err(Error::Cancelled),
+        // Git before 2.40 has no such variable. Apple Git, which macOS ships, is 2.39 and
+        // prints its usage text, so the snapshot would otherwise be permanently unavailable.
+        Err(_) => Ok(fallback_config_paths(variable, |name| {
+            std::env::var_os(name)
+        })),
+    }
+}
+
+/// The file Git documents for `variable` when `git var` cannot report it. The system file, when
+/// it exists, is still guarded through the `--show-origin` listing.
+fn fallback_config_paths(
+    variable: &str,
+    environment: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Vec<PathBuf> {
+    let absolute = |path: PathBuf| path.is_absolute().then_some(path);
+    if let Some(path) = environment(variable) {
+        return absolute(PathBuf::from(path)).into_iter().collect();
+    }
+    if variable != "GIT_CONFIG_GLOBAL" {
+        return Vec::new();
+    }
+    let home = environment("HOME").map(PathBuf::from);
+    let configuration = environment("XDG_CONFIG_HOME")
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| home.as_ref().map(|home| home.join(".config")));
+    [
+        configuration.map(|directory| directory.join("git").join("config")),
+        home.map(|home| home.join(".gitconfig")),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(absolute)
+    .collect()
 }
 
 fn included_path(value: &[u8], origin: Option<&Path>) -> Result<PathBuf> {
@@ -315,45 +351,55 @@ fn fingerprint_refs(
     Ok(())
 }
 
-// Temporary macOS diagnostic (LIT-30): shows which step turns the snapshot into None.
-#[cfg(all(test, target_os = "macos"))]
-mod macos_diagnostic {
-    use super::*;
-    use std::process::Command;
+#[cfg(test)]
+mod tests {
+    use super::fallback_config_paths;
+    use std::{collections::HashMap, ffi::OsString, path::PathBuf};
+
+    fn environment(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {
+        let map: HashMap<String, OsString> = pairs
+            .iter()
+            .map(|(key, value)| ((*key).to_owned(), OsString::from(value)))
+            .collect();
+        move |name| map.get(name).cloned()
+    }
 
     #[test]
-    #[ignore = "diagnostic"]
-    fn diag_reflog_snapshot_layout() {
-        let directory = tempfile::tempdir().unwrap();
-        for args in [
-            vec!["init", "--quiet"],
-            vec![
-                "-c",
-                "user.name=T",
-                "-c",
-                "user.email=t@example.invalid",
-                "commit",
-                "--allow-empty",
-                "-m",
-                "base",
-            ],
-        ] {
-            let output = Command::new("git")
-                .current_dir(directory.path())
-                .args(&args)
-                .output()
-                .unwrap();
-            println!("DIAG git {args:?} -> {}", output.status);
-        }
-        let repository = Repository::discover(directory.path()).unwrap();
-        let root = repository.root().to_owned();
-        let cancel = CancelToken::default();
-        println!("DIAG root {root:?}");
-        println!("DIAG config_paths {:?}", config_paths(&root, &cancel));
-        println!("DIAG resolve_layout {:?}", resolve_layout(&root, &cancel));
-        println!(
-            "DIAG read_reflog_snapshot {:?}",
-            repository.read_reflog_snapshot(&cancel)
+    fn global_fallback_uses_xdg_then_home_like_git_var() {
+        let paths = fallback_config_paths("GIT_CONFIG_GLOBAL", environment(&[("HOME", "/home/u")]));
+        assert_eq!(
+            paths,
+            [
+                PathBuf::from("/home/u/.config/git/config"),
+                PathBuf::from("/home/u/.gitconfig")
+            ]
+        );
+        let paths = fallback_config_paths(
+            "GIT_CONFIG_GLOBAL",
+            environment(&[("HOME", "/home/u"), ("XDG_CONFIG_HOME", "/xdg")]),
+        );
+        assert_eq!(paths[0], PathBuf::from("/xdg/git/config"));
+    }
+
+    #[test]
+    fn explicit_variable_overrides_defaults_and_relative_paths_are_ignored() {
+        let paths = fallback_config_paths(
+            "GIT_CONFIG_GLOBAL",
+            environment(&[("HOME", "/home/u"), ("GIT_CONFIG_GLOBAL", "/etc/custom")]),
+        );
+        assert_eq!(paths, [PathBuf::from("/etc/custom")]);
+        let relative = fallback_config_paths(
+            "GIT_CONFIG_SYSTEM",
+            environment(&[("GIT_CONFIG_SYSTEM", "x")]),
+        );
+        assert!(relative.is_empty());
+    }
+
+    #[test]
+    fn system_fallback_is_empty_without_an_override() {
+        assert!(
+            fallback_config_paths("GIT_CONFIG_SYSTEM", environment(&[("HOME", "/home/u")]))
+                .is_empty()
         );
     }
 }
