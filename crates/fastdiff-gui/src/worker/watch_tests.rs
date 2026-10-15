@@ -75,6 +75,24 @@ fn notification(coverage: &mut WatchCoverage, receiver: &mpsc::Receiver<()>) -> 
     .unwrap_or_else(|failure| panic!("{failure}"))
 }
 
+/// FSEvents replays a `Create(Folder)` for a directory made just before the stream started,
+/// which would count as a layout change of the document's parent. Consume it (when it comes)
+/// so the test observes only the save. Other platforms report nothing here.
+fn discard_replayed_creation(coverage: &mut WatchCoverage, receiver: &mpsc::Receiver<()>) {
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let _ = poll_until(
+        "replayed directory creation",
+        Duration::from_secs(1),
+        |_| {
+            let _ = receiver.recv_timeout(Duration::from_millis(50));
+            coverage.take_received().then_some(())
+        },
+    );
+    coverage.take_pending(&CancelToken::default());
+}
+
 #[test]
 fn ignored_batches_skip_refresh_but_tracked_mixed_and_documents_do_not() {
     let (directory, backend) = repository();
@@ -203,6 +221,7 @@ fn document_atomic_replacement_is_seen_without_periodic_polling() {
         root: directory.path().to_str().unwrap().into(),
     };
     let (mut coverage, receiver) = coverage(&backend, document.to_str());
+    discard_replayed_creation(&mut coverage, &receiver);
     let temporary = directory.path().join("save.tmp");
     fs::write(&temporary, "after").unwrap();
     fs::rename(temporary, &document).unwrap();
@@ -345,43 +364,4 @@ fn deferred_build_cancelled_midway_is_discarded_for_a_retry() {
     );
     let live = CancelToken::default();
     assert!(WatchCoverage::new_unless_cancelled(&backend, None, wake, &live).is_some());
-}
-
-// Temporary macOS diagnostic (LIT-30): prints the raw notify events for the atomic-save
-// scenario so the CI log shows what FSEvents reports. Remove once the cause is fixed.
-#[cfg(target_os = "macos")]
-#[test]
-#[ignore = "diagnostic"]
-fn diag_macos_atomic_save_events() {
-    use notify::{RecursiveMode, Watcher};
-    let directory = tempfile::tempdir().unwrap();
-    let document = directory.path().join("notes.txt");
-    fs::write(&document, "before").unwrap();
-    let (sender, receiver) = mpsc::channel();
-    let mut watcher = notify::recommended_watcher(move |event| {
-        let _ = sender.send(event);
-    })
-    .unwrap();
-    watcher
-        .watch(directory.path(), RecursiveMode::NonRecursive)
-        .unwrap();
-    let temporary = directory.path().join("save.tmp");
-    fs::write(&temporary, "after").unwrap();
-    fs::rename(temporary, &document).unwrap();
-    println!("DIAG tempdir {:?}", directory.path());
-    println!("DIAG canonical {:?}", directory.path().canonicalize());
-    let deadline = std::time::Instant::now() + Duration::from_secs(3);
-    while let Some(left) = deadline.checked_duration_since(std::time::Instant::now()) {
-        match receiver.recv_timeout(left) {
-            Ok(Ok(event)) => println!(
-                "DIAG event {:?} paths={:?} rescan={} flag={:?}",
-                event.kind,
-                event.paths,
-                event.need_rescan(),
-                event.flag()
-            ),
-            Ok(Err(error)) => println!("DIAG error {error}"),
-            Err(_) => break,
-        }
-    }
 }

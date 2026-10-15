@@ -314,3 +314,46 @@ fn fingerprint_refs(
     }
     Ok(())
 }
+
+// Temporary macOS diagnostic (LIT-30): shows which step turns the snapshot into None.
+#[cfg(all(test, target_os = "macos"))]
+mod macos_diagnostic {
+    use super::*;
+    use std::process::Command;
+
+    #[test]
+    #[ignore = "diagnostic"]
+    fn diag_reflog_snapshot_layout() {
+        let directory = tempfile::tempdir().unwrap();
+        for args in [
+            vec!["init", "--quiet"],
+            vec![
+                "-c",
+                "user.name=T",
+                "-c",
+                "user.email=t@example.invalid",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "base",
+            ],
+        ] {
+            let output = Command::new("git")
+                .current_dir(directory.path())
+                .args(&args)
+                .output()
+                .unwrap();
+            println!("DIAG git {args:?} -> {}", output.status);
+        }
+        let repository = Repository::discover(directory.path()).unwrap();
+        let root = repository.root().to_owned();
+        let cancel = CancelToken::default();
+        println!("DIAG root {root:?}");
+        println!("DIAG config_paths {:?}", config_paths(&root, &cancel));
+        println!("DIAG resolve_layout {:?}", resolve_layout(&root, &cancel));
+        println!(
+            "DIAG read_reflog_snapshot {:?}",
+            repository.read_reflog_snapshot(&cancel)
+        );
+    }
+}

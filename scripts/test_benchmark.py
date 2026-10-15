@@ -2,6 +2,7 @@
 
 import math
 import argparse
+import platform
 import contextlib
 import io
 import json
@@ -214,6 +215,11 @@ class SchemaTwoTelemetryTests(unittest.TestCase):
         self.assertIsNotNone(gui_identity(rows + changed)[1])
 
 
+# benchmark.py rejects hosts other than Linux and Windows (native RSS sampling).
+BENCHMARK_HOST = unittest.skipUnless(
+    platform.system() in {"Linux", "Windows"}, "benchmark supports Linux or Windows")
+
+
 class MixedAndPolledIdentityTests(unittest.TestCase):
     def row(self, schema=2, build=BUILD, poll=None):
         return {"telemetry_schema": schema, "build": build if schema == 2 else None,
@@ -259,6 +265,7 @@ class MixedAndPolledIdentityTests(unittest.TestCase):
                 parse_report(report_v2(control_poll_ms=bad), launch_unix_ms=1000,
                              launcher_ms=10, idle_rss_bytes=1024)
 
+    @BENCHMARK_HOST
     def test_main_writes_the_poll_interval_into_the_identity_block(self) -> None:
         polled = Sample(100.0, 200.0, 10.0, 1024, ack_ms=10.0, ui_ready_ms=100.0,
                         requested_content_ms=200.0, readiness_identity_bound=True,
@@ -397,6 +404,7 @@ class SummaryAndResultTests(unittest.TestCase):
         summary = summarize((sample(bound=False),) * 30, windows=False)
         self.assertFalse(summary["readiness_identity_bound"])
 
+    @BENCHMARK_HOST
     def test_main_writes_schema_2_result_with_all_schema_1_keys(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "result.json"
@@ -423,6 +431,7 @@ class SummaryAndResultTests(unittest.TestCase):
             self.assertIn(key, row)
         self.assertEqual(result["completed_runs"], 30)
 
+    @BENCHMARK_HOST
     def test_main_fails_when_the_gui_build_changes_between_runs(self) -> None:
         other = Sample(100.0, 200.0, 10.0, 1024, ack_ms=10.0, ui_ready_ms=100.0,
                        requested_content_ms=200.0, readiness_identity_bound=True,
@@ -442,6 +451,7 @@ class SummaryAndResultTests(unittest.TestCase):
         self.assertIsNone(result["summary"])
 
 
+@BENCHMARK_HOST
 class ArgumentValidationTests(unittest.TestCase):
     def parse(self, *extra):
         argv = ["benchmark.py", "--launcher", "x", "--repository", "/repo", "--file", "a.rs",

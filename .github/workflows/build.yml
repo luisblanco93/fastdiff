@@ -170,12 +170,10 @@ jobs:
       - name: Diagnose macOS environment (temporary, LIT-30)
         continue-on-error: true
         run: |
-          git --version
-          which -a git
-          git var GIT_CONFIG_SYSTEM || true
-          git var GIT_CONFIG_GLOBAL || true
-          git config --includes --show-origin --list || true
-          cargo test --locked -p fastdiff-gui --lib diag_macos_atomic_save_events -- --ignored --nocapture
+          /usr/bin/git --version
+          /usr/bin/git var GIT_CONFIG_SYSTEM || true
+          /usr/bin/git var GIT_CONFIG_GLOBAL || true
+          PATH="/usr/bin:/bin:$HOME/.cargo/bin" cargo test --locked -p fastdiff-core --lib diag_reflog_snapshot_layout -- --ignored --nocapture
       - name: Check
         run: |
           cargo fmt --all -- --check
