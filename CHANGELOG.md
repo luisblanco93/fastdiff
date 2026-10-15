@@ -8,6 +8,10 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 - A macOS (Apple Silicon) build: a `fastdiff-<version>-macos-arm64.tar.gz` release archive that the installer sets up as `dff`. Shortcuts use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> on macOS.
 
+### Fixed
+
+- The window chrome stays dark when the system appearance is light, instead of a light frame around dark diff panes.
+
 ## [1.0.1] - 2026-10-15
 
 ### Fixed

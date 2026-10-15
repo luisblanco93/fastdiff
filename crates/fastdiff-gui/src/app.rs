@@ -531,6 +531,13 @@ pub struct Fastdiff {
     help_open: bool,
 }
 
+/// fastdiff has one dark theme. `set_visuals` only writes the active theme, so pin the theme
+/// first; otherwise a light system appearance shows egui's light chrome around dark diff panes.
+fn apply_theme(context: &egui::Context) {
+    context.set_theme(egui::Theme::Dark);
+    context.set_visuals(egui::Visuals::dark());
+}
+
 impl Fastdiff {
     pub fn new(
         request: OpenRequest,
@@ -538,7 +545,7 @@ impl Fastdiff {
         context: &egui::Context,
         mut benchmark: Benchmark,
     ) -> Self {
-        context.set_visuals(egui::Visuals::dark());
+        apply_theme(context);
         egui_extras::install_image_loaders(context);
         let wake_context = context.clone();
         server.set_wake_callback(move || wake_context.request_repaint());

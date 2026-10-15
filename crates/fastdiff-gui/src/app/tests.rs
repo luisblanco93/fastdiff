@@ -1897,3 +1897,15 @@ fn reflog_panel_omits_duplicate_head_and_branch_row() {
         }
     }
 }
+
+#[test]
+fn chrome_stays_dark_under_a_light_system_appearance() {
+    let context = egui::Context::default();
+    context.set_theme(egui::ThemePreference::Light);
+    assert!(!context.style().visuals.dark_mode);
+
+    apply_theme(&context);
+
+    assert_eq!(context.theme(), egui::Theme::Dark);
+    assert!(context.style().visuals.dark_mode);
+}
