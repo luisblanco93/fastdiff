@@ -320,13 +320,16 @@ fn minimal_toolbar_and_editor_search_focus() {
     ] {
         assert!(harness.query_by_label(label).is_none(), "{label}");
     }
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::F);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::F);
     harness.run();
     harness.event(egui::Event::Text("main".into()));
     harness.run();
     assert_eq!(harness.state().tabs[0].search, "main");
     assert!(harness.state().tabs[0].filter.is_empty());
-    harness.key_press_modifiers(egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::F);
+    harness.key_press_modifiers(
+        egui::Modifiers::COMMAND | egui::Modifiers::ALT,
+        egui::Key::F,
+    );
     harness.run();
     harness.event(egui::Event::Text("src".into()));
     harness.run();
@@ -384,7 +387,7 @@ fn toolbar_ui_zoom_scales_navigation_without_changing_source_font_preference() {
     harness.get_by_label("UI −").click_accesskit();
     harness.run();
     assert!((harness.ctx.zoom_factor() - initial_zoom).abs() < 0.001);
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::Minus);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Minus);
     harness.run();
     assert_eq!(
         harness.state().preferences.font_size,
@@ -521,7 +524,11 @@ fn help_lists_shortcuts_and_comparison_and_escape_closes() {
             .query_by_label("Copy comparison: Unstaged")
             .is_some()
     );
-    assert!(harness.query_by_label("Ctrl+Alt+F").is_some());
+    assert!(
+        harness
+            .query_by_label(&shortcuts::binding_label("Ctrl+Alt+F"))
+            .is_some()
+    );
     harness.key_press(egui::Key::Escape);
     harness.run();
     assert!(harness.query_by_label("Keyboard shortcuts").is_none());
@@ -533,7 +540,7 @@ fn help_lists_shortcuts_and_comparison_and_escape_closes() {
 #[test]
 fn switching_view_discards_previous_comparison_and_requests_refresh() {
     let mut harness = Harness::new_state(|context, app| app.show(context), viewer());
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::Num3);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num3);
     harness.run_steps(2);
     assert_eq!(harness.state().tabs[0].view, View::Staged);
     assert!(harness.state().tabs[0].loading);
@@ -563,7 +570,7 @@ fn git_filters_keep_diff_mode_and_tree_when_selection_disappears() {
                 }
                 let mut harness = Harness::new_state(|context, app| app.show(context), app);
                 if keyboard {
-                    harness.key_press_modifiers(egui::Modifiers::CTRL, key);
+                    harness.key_press_modifiers(egui::Modifiers::COMMAND, key);
                 } else {
                     harness
                         .get_by_role_and_label(egui::accesskit::Role::Button, label)
@@ -626,7 +633,7 @@ fn full_file_disables_git_buttons_and_shortcuts() {
                 .accesskit_node()
                 .is_disabled()
         );
-        harness.key_press_modifiers(egui::Modifiers::CTRL, key);
+        harness.key_press_modifiers(egui::Modifiers::COMMAND, key);
         harness.run();
         assert_eq!(harness.state().tabs[0].view, View::All);
         assert!(harness.state().tabs[0].document_mode);
@@ -853,7 +860,7 @@ fn copying_path_and_selected_patch_uses_original_metadata() {
         physical_key: None,
         pressed: true,
         repeat: false,
-        modifiers: egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
+        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
     });
     harness.step();
     assert!(harness.output().platform_output.commands.iter().any(
@@ -864,7 +871,7 @@ fn copying_path_and_selected_patch_uses_original_metadata() {
         physical_key: None,
         pressed: true,
         repeat: false,
-        modifiers: egui::Modifiers::CTRL | egui::Modifiers::ALT,
+        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::ALT,
     });
     harness.step();
     assert!(harness.output().platform_output.commands.iter().any(
@@ -875,14 +882,14 @@ fn copying_path_and_selected_patch_uses_original_metadata() {
 #[test]
 fn text_fields_keep_editing_shortcuts() {
     let mut harness = Harness::new_state(|context, app| app.show(context), viewer());
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::F);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::F);
     harness.run();
     harness.event(egui::Event::Text("main".into()));
     harness.run();
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::Num3);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num3);
     harness.run();
     assert_eq!(harness.state().tabs[0].view, View::All);
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::ArrowDown);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::ArrowDown);
     harness.run();
     assert_eq!(
         harness.state().tabs[0]
@@ -1020,7 +1027,7 @@ fn explicit_equal_status_refresh_still_reveals_and_completes_loading() {
 fn shortcuts_cycle_copy_comparison_and_copy_source_without_patch() {
     let mut harness = Harness::new_state(|context, app| app.show(context), viewer());
     harness.key_press_modifiers(
-        egui::Modifiers::CTRL | egui::Modifiers::ALT,
+        egui::Modifiers::COMMAND | egui::Modifiers::ALT,
         egui::Key::ArrowLeft,
     );
     harness.run();
@@ -1030,7 +1037,7 @@ fn shortcuts_cycle_copy_comparison_and_copy_source_without_patch() {
         physical_key: None,
         pressed: true,
         repeat: false,
-        modifiers: egui::Modifiers::CTRL | egui::Modifiers::ALT | egui::Modifiers::SHIFT,
+        modifiers: egui::Modifiers::COMMAND | egui::Modifiers::ALT | egui::Modifiers::SHIFT,
     });
     harness.step();
     let copied = harness
@@ -1048,7 +1055,7 @@ fn shortcuts_cycle_copy_comparison_and_copy_source_without_patch() {
         .collect::<Vec<_>>();
     assert_eq!(copied, ["fn main() {}"]);
     harness.key_press_modifiers(
-        egui::Modifiers::CTRL | egui::Modifiers::ALT,
+        egui::Modifiers::COMMAND | egui::Modifiers::ALT,
         egui::Key::ArrowRight,
     );
     harness.run();
@@ -1058,14 +1065,17 @@ fn shortcuts_cycle_copy_comparison_and_copy_source_without_patch() {
 #[test]
 fn shortcut_actions_toggle_layout_zoom_and_refresh() {
     let mut harness = Harness::new_state(|context, app| app.show(context), viewer());
-    harness.key_press_modifiers(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::U);
+    harness.key_press_modifiers(
+        egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+        egui::Key::U,
+    );
     harness.run();
     assert!(harness.state().preferences.unified);
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::Minus);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Minus);
     harness.run();
     assert_eq!(harness.state().preferences.font_size, 12.0);
     harness.key_press_modifiers(
-        egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
+        egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
         egui::Key::Equals,
     );
     harness.run();
@@ -1101,7 +1111,7 @@ fn search_shortcuts_move_in_both_directions() {
     harness.key_press_modifiers(egui::Modifiers::SHIFT, egui::Key::F3);
     harness.run();
     assert_eq!(harness.state().tabs[0].search_index, 0);
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::F);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::F);
     harness.run();
     harness.key_press(egui::Key::Enter);
     harness.run();
@@ -1116,15 +1126,15 @@ fn native_copy_events_honor_exact_copy_variant_modifiers() {
     let mut harness = Harness::new_state(|context, app| app.show(context), viewer());
     for (modifiers, expected) in [
         (
-            egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
+            egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
             "src/main.rs",
         ),
         (
-            egui::Modifiers::CTRL | egui::Modifiers::ALT,
+            egui::Modifiers::COMMAND | egui::Modifiers::ALT,
             "Unstaged patch",
         ),
         (
-            egui::Modifiers::CTRL | egui::Modifiers::ALT | egui::Modifiers::SHIFT,
+            egui::Modifiers::COMMAND | egui::Modifiers::ALT | egui::Modifiers::SHIFT,
             "fn main() {}",
         ),
     ] {
@@ -1151,7 +1161,7 @@ fn native_copy_events_honor_exact_copy_variant_modifiers() {
 #[test]
 fn source_context_menu_takes_copy_focus_from_search_field() {
     let mut harness = Harness::new_state(|context, app| app.show(context), viewer());
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::F);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::F);
     harness.run();
     harness.event(egui::Event::Text("search text".into()));
     harness.run();
@@ -1163,7 +1173,7 @@ fn source_context_menu_takes_copy_focus_from_search_field() {
     harness.run();
     harness.get_by_label("Select all").click();
     harness.run();
-    harness.input_mut().modifiers = egui::Modifiers::CTRL | egui::Modifiers::COMMAND;
+    harness.input_mut().modifiers = egui::Modifiers::COMMAND;
     harness.event(egui::Event::Copy);
     harness.step();
     assert!(harness.output().platform_output.commands.iter().any(
@@ -1181,7 +1191,7 @@ fn native_copy_uses_c_release_modifiers_when_the_chord_finishes_in_one_frame() {
             physical_key: Some(egui::Key::C),
             pressed: false,
             repeat: false,
-            modifiers: egui::Modifiers::CTRL | egui::Modifiers::SHIFT | egui::Modifiers::COMMAND,
+            modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
         },
     ];
     harness.input_mut().modifiers = egui::Modifiers::NONE;
@@ -1327,7 +1337,7 @@ fn reflog_panel_preserves_file_filter_and_accepts_diff_events() {
 #[test]
 fn reflog_panel_preserves_diff_controls_and_supports_shortcut_and_refresh() {
     let mut harness = Harness::new_state(|context, app| app.show(context), viewer());
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::Num5);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num5);
     harness.run_steps(2);
     assert!(harness.state().tabs[0].reflog_open);
     for label in [
@@ -1615,7 +1625,7 @@ fn git_filter_shortcut_keeps_reflog_panel_open() {
     let mut app = viewer();
     app.tabs[0].reflog_open = true;
     let mut harness = Harness::new_state(|context, app| app.show(context), app);
-    harness.key_press_modifiers(egui::Modifiers::CTRL, egui::Key::Num3);
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num3);
     harness.run_steps(2);
     assert!(harness.state().tabs[0].reflog_open);
     assert_eq!(harness.state().tabs[0].view, View::Staged);

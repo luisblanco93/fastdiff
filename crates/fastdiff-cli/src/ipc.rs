@@ -278,8 +278,7 @@ fn runtime_directory() -> Result<PathBuf> {
     }
     #[cfg(unix)]
     {
-        use std::os::unix::fs::MetadataExt;
-        let uid = std::fs::metadata("/proc/self")?.uid();
+        let uid = current_uid();
         Ok(std::env::var_os("XDG_RUNTIME_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(std::env::temp_dir)
@@ -291,6 +290,13 @@ fn runtime_directory() -> Result<PathBuf> {
             .ok_or_else(|| Error::InvalidArgument("LOCALAPPDATA is unavailable".into()))?;
         Ok(PathBuf::from(base).join("fastdiff"))
     }
+}
+
+/// Effective user id of this process. Portable: `/proc` does not exist on macOS.
+#[cfg(unix)]
+fn current_uid() -> u32 {
+    // SAFETY: `geteuid` has no preconditions and cannot fail.
+    unsafe { libc::geteuid() }
 }
 
 /// Directory that holds the instance lock for a runtime `directory`.
@@ -336,7 +342,7 @@ fn ensure_private_directory(directory: &Path) -> Result<()> {
             Err(error) => return Err(error.into()),
         }
         let metadata = std::fs::symlink_metadata(directory)?;
-        let uid = std::fs::metadata("/proc/self")?.uid();
+        let uid = current_uid();
         if !metadata.is_dir() || metadata.uid() != uid || metadata.mode() & 0o077 != 0 {
             return Err(Error::InvalidArgument(
                 "IPC directory must be owned by this user with mode 0700".into(),
@@ -441,6 +447,16 @@ impl Write for DeadlineStream {
 mod tests {
     use super::*;
     use std::sync::{Mutex, atomic::AtomicUsize};
+
+    #[cfg(unix)]
+    #[test]
+    fn current_uid_owns_files_created_by_this_process() {
+        use std::os::unix::fs::MetadataExt;
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("owned");
+        std::fs::write(&file, b"").unwrap();
+        assert_eq!(current_uid(), std::fs::metadata(file).unwrap().uid());
+    }
 
     fn request() -> OpenRequest {
         OpenRequest {
