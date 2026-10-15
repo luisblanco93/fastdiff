@@ -157,7 +157,7 @@ jobs:
             --assets dist --notes-file release-notes.md
 
   macos:
-    needs: linux
+    # Independent of linux (no shared artifacts), so it starts immediately. release-assets still needs it.
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
