@@ -227,8 +227,8 @@ fn helper_operation_metadata_is_shared_for_mixed_all() {
     }
     assert_eq!(
         counts,
-        (1, 1, 1),
-        "status config, diff config, selected index size"
+        (1, 0, 1),
+        "status config, diff reuses the status filter probe, selected index size"
     );
 }
 
