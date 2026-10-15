@@ -40,6 +40,16 @@ jobs:
           cargo --version
           python3 --version
           git --version
+      # Caches hold dependency inputs only. Release outputs (target/release) and dist/ are never
+      # cached, so every shipped binary is built from the candidate commit in this run.
+      - name: Restore Cargo dependency and debug build cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/debug
+          key: cargo-debug-${{ runner.os }}-${{ runner.arch }}-rust1.90.0-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '**/Cargo.toml') }}
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -50,9 +60,19 @@ jobs:
         run: python3 -m pip install --disable-pip-version-check pyyaml==6.0.3
       - name: Python tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Restore coverage tool and coverage build cache
+        id: coverage-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/bin/cargo-llvm-cov
+            target/llvm-cov-target
+          key: cargo-cov-${{ runner.os }}-${{ runner.arch }}-rust1.90.0-llvm-cov-0.6.21-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '**/Cargo.toml') }}
+      - name: Install coverage tool
+        if: steps.coverage-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-llvm-cov --locked --version 0.6.21
       - name: Measure core and CLI coverage
         run: |
-          cargo install cargo-llvm-cov --locked --version 0.6.21
           mkdir -p coverage
           cargo llvm-cov -p fastdiff-core --fail-under-lines 80 --lcov --output-path coverage/core.info
           cargo llvm-cov -p fastdiff-cli --ignore-filename-regex 'crates/fastdiff-core/' --fail-under-lines 80 --lcov --output-path coverage/cli.info
@@ -97,7 +117,7 @@ jobs:
 
   release-assets:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, macos, windows]
+    needs: [linux, macos, windows-package]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -239,7 +259,6 @@ jobs:
           if-no-files-found: error
 
   windows:
-    needs: linux
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -258,6 +277,14 @@ jobs:
           cargo --version
           python --version
           git --version
+      - name: Restore Cargo dependency and debug build cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/debug
+          key: cargo-debug-${{ runner.os }}-${{ runner.arch }}-rust1.90.0-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '**/Cargo.toml') }}
       - name: Check formatting
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
@@ -354,6 +381,25 @@ jobs:
           name: windows-smoke-diagnostics
           path: ${{ runner.temp }}/fastdiff-smoke
           if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-binaries
+          path: |
+            target/release/fastdiff.exe
+            target/release/fastdiff-gui.exe
+          if-no-files-found: error
+
+  # Only packaging waits for the Linux helper; verification above runs concurrently with Linux.
+  # Both inputs are artifacts of this run, so the archive pairs binaries and helper from one candidate.
+  windows-package:
+    needs: [linux, windows]
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release-binaries
+          path: target/release
       - uses: actions/download-artifact@v4
         with:
           name: wsl-helper
@@ -366,3 +412,17 @@ jobs:
           name: windows-x64-with-wsl-helper
           path: dist/*.zip
           if-no-files-found: error
+
+  # Always reports one status that fails on any failed, cancelled, or unexpectedly skipped job.
+  # Add every new job to `needs`; tests/test_release_workflow.py enforces it.
+  result:
+    if: always()
+    needs: [linux, macos, windows, windows-package, release-assets, draft-release]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fold job results
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          TAG_RUN: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: python3 scripts/ci-result.py --tag-run "$TAG_RUN"
