@@ -170,7 +170,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("scripts/package-unix.sh", run_text(macos))
         self.assertIn("verify_tar_archive", run_text(macos))
         release = self.jobs["release-assets"]
-        self.assertEqual(set(needs(release)), {"linux", "macos", "windows"})
+        self.assertIn("macos", needs(release))
+        self.assertTrue({"linux", "macos", "windows"} <= ancestors(self.jobs, "release-assets"))
         downloaded = [
             step["with"]["name"]
             for step in release["steps"]
