@@ -4,6 +4,16 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-15
+
+### Fixed
+
+- Full File no longer fails with "os error 123" on native Windows repositories.
+
+### Changed
+
+- Selecting a file starts its Git comparisons together instead of one after another, and a file you already viewed is shown immediately from cache while it is re-checked. Speedup has not been measured.
+
 ## [1.0.0] - 2026-10-13
 
 First stable release of fastdiff, the read-only Git change viewer, published from this repository.
