@@ -1,3 +1,4 @@
+use super::test_support::expect_signal;
 use super::*;
 use fastdiff_core::{Comparison, DiffRow, RowKind};
 
@@ -112,14 +113,20 @@ fn new_search_after_traversal_before_publication_discards_completed_result() {
     let shared = Arc::clone(&worker.shared);
     let (ready, finished) = mpsc::channel();
     let (resume, proceed) = mpsc::channel();
-    let search = thread::spawn(move || {
+    let search = thread::spawn(move || -> Result<(), String> {
         let document = document(&[("", "needle")]);
         let hits = search_document(Some(&document), "needle", || {
             search_current(&shared, &token, 1)
         })
-        .unwrap();
-        ready.send(()).unwrap();
-        proceed.recv_timeout(Duration::from_secs(5)).unwrap();
+        .ok_or_else(|| "search traversal was superseded".to_owned())?;
+        ready
+            .send(())
+            .map_err(|_| "search traversal receiver disconnected".to_owned())?;
+        expect_signal(
+            &proceed,
+            "search publication release",
+            Duration::from_secs(5),
+        )?;
         publish_search(
             &shared,
             &egui::Context::default(),
@@ -129,11 +136,22 @@ fn new_search_after_traversal_before_publication_discards_completed_result() {
             "needle".into(),
             hits,
         );
+        Ok(())
     });
-    finished.recv_timeout(Duration::from_secs(5)).unwrap();
+    let traversal_finished = expect_signal(
+        &finished,
+        "search traversal finished",
+        Duration::from_secs(5),
+    );
     worker.search(7, 2, "new".into());
-    resume.send(()).unwrap();
-    search.join().unwrap();
+    let resumed = resume.send(());
+    drop(resume);
+    let joined = search.join();
+    traversal_finished.unwrap_or_else(|failure| panic!("{failure}"));
+    resumed.unwrap();
+    joined
+        .unwrap()
+        .unwrap_or_else(|failure| panic!("{failure}"));
     assert!(worker.drain_events().is_empty());
 }
 

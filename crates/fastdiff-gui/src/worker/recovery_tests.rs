@@ -1,4 +1,6 @@
-use super::test_support::{wait_event, wait_events, wait_reflog};
+use super::test_support::{
+    ProgressGuard, expect_signal, poll_until, wait_event, wait_events, wait_reflog,
+};
 use super::*;
 use fastdiff_cli::{HelperClient, WslTarget};
 use std::{fs, os::unix::fs::PermissionsExt, path::Path};
@@ -137,15 +139,9 @@ fn log(script: &Path) -> String {
     fs::read_to_string(script.with_extension("log")).unwrap_or_default()
 }
 
-fn wait_until(mut condition: impl FnMut() -> bool) {
-    let deadline = Instant::now() + WAIT;
-    while Instant::now() < deadline {
-        if condition() {
-            return;
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
-    panic!("recovery condition did not complete");
+fn wait_until(expected: &str, mut condition: impl FnMut(&mut ProgressGuard) -> bool) {
+    poll_until(expected, WAIT, |guard| condition(guard).then_some(()))
+        .unwrap_or_else(|failure| panic!("{failure}"));
 }
 
 #[test]
@@ -207,7 +203,11 @@ fn idle_disconnect_and_failed_reconnection_wait_for_another_explicit_refresh() {
     });
     status(&worker, 0);
     fs::write(first.with_extension("stop.idle"), "exit").unwrap();
-    wait_until(|| log(&first).contains("idle_exit"));
+    wait_until("helper idle exit", |guard| {
+        let log = log(&first);
+        guard.advance(format!("helper log length {}", log.len()));
+        log.contains("idle_exit")
+    });
     thread::sleep(Duration::from_millis(100));
     worker.refresh(1, View::All);
     let event = wait_event(&worker, 1, |event| {
@@ -373,7 +373,8 @@ fn cancellation_after_branch_success_stops_the_remaining_refresh_operations() {
     let _ = context.run(Default::default(), |_| {});
     let _ = context.run(Default::default(), |_| {});
     worker.refresh(1, View::All);
-    observed.recv_timeout(WAIT).unwrap();
+    expect_signal(&observed, "refresh cancellation after branch success", WAIT)
+        .unwrap_or_else(|failure| panic!("{failure}"));
     thread::sleep(Duration::from_millis(100));
     assert_eq!(
         log(&script)
@@ -419,13 +420,21 @@ fn newer_refresh_cancels_discovery_without_losing_the_latest_request() {
     status(&worker, 0);
     disconnect(&worker, &first);
     worker.refresh(2, View::All);
-    let token = discovery_started.recv_timeout(WAIT).unwrap();
+    let discovery = expect_signal(&discovery_started, "replacement discovery started", WAIT);
     worker.refresh(3, View::Staged);
-    assert!(token.is_cancelled());
-    release_on_failure.send(()).unwrap();
+    let cancelled_before_release = discovery.as_ref().is_ok_and(CancelToken::is_cancelled);
+    let released = release_on_failure.send(());
+    drop(release_on_failure);
+    if let Err(failure) = discovery {
+        drop(worker);
+        panic!("{failure}");
+    }
     let events = wait_events(&worker, 3, |event| {
         matches!(event, Event::Status { generation: 3, .. })
     });
+    drop(worker);
+    released.unwrap();
+    assert!(cancelled_before_release);
     assert_eq!(attempts.load(Ordering::Acquire), 3);
     assert!(
         !events
@@ -458,7 +467,7 @@ fn refresh_queued_during_terminal_cleanup_is_preserved() {
     fs::write(first.with_extension("stop"), "stop").unwrap();
     worker.refresh(1, View::All);
     let cleanup = first.with_extension("log.cleanup");
-    wait_until(|| cleanup.exists());
+    wait_until("helper terminal cleanup", |_| cleanup.exists());
     let pid = fs::read_to_string(&cleanup).unwrap();
     assert!(
         std::process::Command::new("kill")

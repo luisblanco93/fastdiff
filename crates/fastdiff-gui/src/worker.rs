@@ -2050,12 +2050,16 @@ mod tests {
                 holding_pending.send(()).unwrap();
                 take_pending_job(&shared, &mut pending).map(|(command, _)| command)
             });
-            let confirmed = holding_pending_receiver.recv_timeout(WAIT).is_ok();
+            let confirmed = test_support::expect_signal(
+                &holding_pending_receiver,
+                "job selection holding the pending lock",
+                WAIT,
+            );
             shared.foreground.store(false, Ordering::Release);
             drop(active);
             (confirmed, blocked.join())
         });
-        assert!(confirmed, "Selection never took the pending lock");
+        confirmed.unwrap_or_else(|failure| panic!("{failure}"));
         assert!(
             matches!(blocked_job, Ok(None)),
             "Deactivation during activation delivered or lost the command"
