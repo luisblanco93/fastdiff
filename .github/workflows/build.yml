@@ -206,6 +206,7 @@ jobs:
           from pathlib import Path
           import shutil
           import subprocess
+          import sys
 
           gui = Path('target/release/fastdiff-gui.exe').resolve()
           smoke = Path(os.environ['RUNNER_TEMP']) / 'fastdiff-smoke'
@@ -243,6 +244,7 @@ jobs:
               failure = 'smoke test timed out after 30s'
           (smoke / 'stdout.log').write_bytes(stdout)
           (smoke / 'stderr.log').write_bytes(stderr)
+          sys.stdout.reconfigure(encoding='utf-8', errors='replace')
           for name in ('stdout.log', 'stderr.log', 'report.json'):
               path = smoke / name
               if path.exists():

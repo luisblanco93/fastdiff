@@ -51,15 +51,15 @@ Rules: report only checks that were executed; state versions and platforms; keep
 
 CI runs only for `v*` tags and manual dispatch (#5, #7); local checks are the PR and `main` gate (`docs/releasing.md`). Each failing step in `build.yml` is its own named step (format, Clippy, Rust tests, Python tests, packaging validation, smoke), and both smoke steps print and upload stdout, stderr, and the report on failure.
 
-Classification of the failures observed in the predecessor repository (26 failed attempts out of 42, 17 distinct commits). These are run-level counts, not distinct bugs.
+Classification of the failures reported in LIT-27 for the predecessor repository (26 failed attempts out of 42, 17 distinct commits). The counts come from that issue and cannot be reproduced from this repository. They are run-level counts, not distinct bugs.
 
 | Class | Attempts | Status | Current evidence |
 | -- | -- | -- | -- |
-| Rust/Python test failures | 15 | Partly resolved; the worker-timing share is pending (LIT-21, LIT-31) | Windows path fixes are in `main`; fixed 5s worker waits still fail under default-parallel load on native Windows |
-| Native-window smoke failures | 5 | Diagnosable; cause not re-evaluated | Smoke steps retain stdout, stderr, and report |
-| Formatting | 4 | Not applicable to CI as a gate | `cargo fmt --all -- --check` is a named step and a local gate |
+| Rust/Python test failures | 15 | Partly resolved; worker timing is pending | Windows path fixes landed (for example #10); worker-wait load sensitivity is tracked in LIT-21 and LIT-31 |
+| Native-window smoke failures | 5 | Diagnosable; cause not re-evaluated | Smoke steps retain stdout, stderr, and the report |
+| Formatting | 4 | Resolved as a diagnosis problem | Runs in tagged CI as its own step; local gate per `docs/releasing.md`; the historical failures predate the tag-only trigger |
 | Clippy | 1 | Same as formatting | Named step |
-| Coverage stage | 1 | Pending | Thresholds unchanged; stage failures are now isolated from tests |
+| Coverage stage | 1 | Pending | Thresholds unchanged (80% lines for core and CLI, Linux only); the stage was already separate |
 
 Incident in this repository: the `v1.0.1` tag run [38666695292](https://github.com/luisblanco93/fastdiff/actions/runs/38666695292) failed on `helper_operation_metadata_is_shared_for_mixed_all` (`crates/fastdiff-cli/tests/protocol.rs`), a Git call-count assertion broken by the LIT-29 change (#9), and cost a retag (#12). Status: fixed in #12; the incidental-count class is pending in LIT-27 PR 3.
 
