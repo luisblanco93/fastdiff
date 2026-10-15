@@ -47,6 +47,22 @@ Recorded YYYY-MM-DD from revision `<commit>`. Tagged CI run: <link>.
 
 Rules: report only checks that were executed; state versions and platforms; keep the raw output or its link; list what was skipped.
 
+## CI failure classification (LIT-27)
+
+CI runs only for `v*` tags and manual dispatch (#5, #7); local checks are the PR and `main` gate (`docs/releasing.md`). Each failing step in `build.yml` is its own named step (format, Clippy, Rust tests, Python tests, packaging validation, smoke), and both smoke steps print and upload stdout, stderr, and the report on failure.
+
+Classification of the failures observed in the predecessor repository (26 failed attempts out of 42, 17 distinct commits). These are run-level counts, not distinct bugs.
+
+| Class | Attempts | Status | Current evidence |
+| -- | -- | -- | -- |
+| Rust/Python test failures | 15 | Partly resolved; the worker-timing share is pending (LIT-21, LIT-31) | Windows path fixes are in `main`; fixed 5s worker waits still fail under default-parallel load on native Windows |
+| Native-window smoke failures | 5 | Diagnosable; cause not re-evaluated | Smoke steps retain stdout, stderr, and report |
+| Formatting | 4 | Not applicable to CI as a gate | `cargo fmt --all -- --check` is a named step and a local gate |
+| Clippy | 1 | Same as formatting | Named step |
+| Coverage stage | 1 | Pending | Thresholds unchanged; stage failures are now isolated from tests |
+
+Incident in this repository: the `v1.0.1` tag run [38666695292](https://github.com/luisblanco93/fastdiff/actions/runs/38666695292) failed on `helper_operation_metadata_is_shared_for_mixed_all` (`crates/fastdiff-cli/tests/protocol.rs`), a Git call-count assertion broken by the LIT-29 change (#9), and cost a retag (#12). Status: fixed in #12; the incidental-count class is pending in LIT-27 PR 3.
+
 ## Historical evidence (before this repository)
 
 The records below come from the project's earlier development history, when the product shipped as `diffcode`. They are retained for context and **do not validate any release of this repository**.

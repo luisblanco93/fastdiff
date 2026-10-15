@@ -32,12 +32,22 @@ jobs:
           components: rustfmt, clippy, llvm-tools-preview
       - name: Install native build dependencies
         run: sudo apt-get update && sudo apt-get install -y pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libgl1-mesa-dev xvfb
-      - name: Check and test
+      - name: Record environment
         run: |
-          cargo fmt --all -- --check
-          cargo clippy --workspace --all-targets --locked -- -D warnings
-          cargo test --workspace --locked
-          python3 -m unittest discover -s scripts -p 'test_*.py'
+          echo "revision: $GITHUB_SHA"
+          echo "runner: $RUNNER_OS $RUNNER_ARCH ($ImageOS $ImageVersion)"
+          rustc --version --verbose
+          cargo --version
+          python3 --version
+          git --version
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Rust tests
+        run: cargo test --workspace --locked
+      - name: Python tests
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Measure core and CLI coverage
         run: |
           cargo install cargo-llvm-cov --locked --version 0.6.21
@@ -48,12 +58,28 @@ jobs:
         run: cargo build --release --locked --workspace
       - name: Native window smoke test
         run: |
-          fixture=$(mktemp -d)
+          smoke="$RUNNER_TEMP/fastdiff-smoke"
+          rm -rf "$smoke"
+          mkdir -p "$smoke/repo"
+          fixture="$smoke/repo"
           git -C "$fixture" init
           printf 'first line\n' > "$fixture/smoke.rs"
           request=$(python3 -c 'import json,sys; print(json.dumps({"target":"repository","repository":sys.argv[1],"file":[115,109,111,107,101,46,114,115],"view":"all","wsl":None}))' "$fixture")
-          timeout 30s env FASTDIFF_BENCH_EXIT_MS=10000 FASTDIFF_BENCH_REPORT="$fixture/report.json" xvfb-run -a ./target/release/fastdiff-gui --request "$request" --smoke-test
-          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["first_diff_ms"] is not None' "$fixture/report.json"
+          status=0
+          timeout 30s env FASTDIFF_BENCH_EXIT_MS=10000 FASTDIFF_BENCH_REPORT="$smoke/report.json" xvfb-run -a ./target/release/fastdiff-gui --request "$request" --smoke-test >"$smoke/stdout.log" 2>"$smoke/stderr.log" || status=$?
+          echo "smoke exit code: $status"
+          for log in stdout.log stderr.log report.json; do
+            if [ -f "$smoke/$log" ]; then echo "--- $log ---"; cat "$smoke/$log"; fi
+          done
+          [ "$status" -eq 0 ] || exit "$status"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["first_diff_ms"] is not None' "$smoke/report.json"
+      - name: Upload smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-smoke-diagnostics
+          path: ${{ runner.temp }}/fastdiff-smoke
+          if-no-files-found: ignore
       - name: Package Linux
         run: bash scripts/package-linux.sh
       - uses: actions/upload-artifact@v4
@@ -136,13 +162,34 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.90.0
         with:
           components: rustfmt, clippy
-      - name: Check and test
+      - name: Record environment
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          "revision: $env:GITHUB_SHA"
+          "runner: $env:RUNNER_OS $env:RUNNER_ARCH ($env:ImageOS $env:ImageVersion)"
+          rustc --version --verbose
+          cargo --version
+          python --version
+          git --version
+      - name: Check formatting
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           cargo fmt --all -- --check
+      - name: Clippy
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Rust tests
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo test --workspace --locked -- --test-threads=2
+      - name: Python tests
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           python -m unittest discover -s scripts -p 'test_*.py'
+      - name: Windows packaging validation
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           ./scripts/test-package-windows.ps1
       - name: Build release
         run: cargo build --release --locked --workspace
@@ -157,35 +204,63 @@ jobs:
           import json
           import os
           from pathlib import Path
+          import shutil
           import subprocess
-          import tempfile
 
           gui = Path('target/release/fastdiff-gui.exe').resolve()
-          with tempfile.TemporaryDirectory(prefix='fastdiff-smoke-') as directory:
-              fixture = Path(directory)
-              subprocess.run(['git', '-C', directory, 'init'], check=True)
-              (fixture / 'smoke.rs').write_text('first line\n', encoding='utf-8')
-              report = fixture / 'report.json'
-              request = json.dumps({
-                  'target': 'repository',
-                  'repository': directory,
-                  'file': list(b'smoke.rs'),
-                  'view': 'all',
-                  'wsl': None,
-              })
-              subprocess.run(
+          smoke = Path(os.environ['RUNNER_TEMP']) / 'fastdiff-smoke'
+          shutil.rmtree(smoke, ignore_errors=True)
+          fixture = smoke / 'repo'
+          fixture.mkdir(parents=True)
+          subprocess.run(['git', '-C', str(fixture), 'init'], check=True)
+          (fixture / 'smoke.rs').write_text('first line\n', encoding='utf-8')
+          report = smoke / 'report.json'
+          request = json.dumps({
+              'target': 'repository',
+              'repository': str(fixture),
+              'file': list(b'smoke.rs'),
+              'view': 'all',
+              'wsl': None,
+          })
+          failure = None
+          try:
+              completed = subprocess.run(
                   [str(gui), '--request', request, '--smoke-test'],
                   env={
                       **os.environ,
                       'FASTDIFF_BENCH_EXIT_MS': '10000',
                       'FASTDIFF_BENCH_REPORT': str(report),
-                      'FASTDIFF_RUNTIME_DIR': str(fixture / 'runtime'),
+                      'FASTDIFF_RUNTIME_DIR': str(smoke / 'runtime'),
                   },
-                  check=True,
+                  capture_output=True,
                   timeout=30,
               )
+              stdout, stderr = completed.stdout, completed.stderr
+              if completed.returncode != 0:
+                  failure = f'smoke test exited with code {completed.returncode}'
+          except subprocess.TimeoutExpired as error:
+              stdout, stderr = error.stdout or b'', error.stderr or b''
+              failure = 'smoke test timed out after 30s'
+          (smoke / 'stdout.log').write_bytes(stdout)
+          (smoke / 'stderr.log').write_bytes(stderr)
+          for name in ('stdout.log', 'stderr.log', 'report.json'):
+              path = smoke / name
+              if path.exists():
+                  print(f'--- {name} ---')
+                  print(path.read_text(encoding='utf-8', errors='replace'))
+          if failure is None:
               result = json.loads(report.read_text(encoding='utf-8'))
-              assert result.get('first_diff_ms') is not None, 'Native GUI did not render a diff'
+              if result.get('first_diff_ms') is None:
+                  failure = 'Native GUI did not render a diff'
+          if failure is not None:
+              raise SystemExit(failure)
+      - name: Upload smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-diagnostics
+          path: ${{ runner.temp }}/fastdiff-smoke
+          if-no-files-found: ignore
       - uses: actions/download-artifact@v4
         with:
           name: wsl-helper
