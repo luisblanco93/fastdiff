@@ -20,8 +20,10 @@ class InstalledCommandTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="fastdiff command ")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name) / "data" / "fastdiff"
-        self.wrapper = Path(temporary.name) / "bin" / "dff"
+        # macOS temp dirs sit behind the /var -> /private/var symlink, which the installer refuses.
+        base = Path(temporary.name).resolve()
+        self.root = base / "data" / "fastdiff"
+        self.wrapper = base / "bin" / "dff"
         location = patch.object(runtime, "command_path", return_value=self.wrapper)
         location.start()
         self.addCleanup(location.stop)
@@ -123,7 +125,7 @@ class InstalledCommandTests(unittest.TestCase):
         receipt = self.install()
         command = Path(receipt["command"])
         self.assertTrue(command.is_file())
-        self.assertEqual(receipt["python"], str(Path(runtime.sys.executable).resolve()))
+        self.assertEqual(receipt["python"], runtime.interpreter_path())
         # Replace only the staged entry point to observe the wrapper's exact argv.
         command.write_text("import json, sys\nprint(json.dumps(sys.argv[1:]))\n")
         arguments = ["/repo with spaces", "--file", "a;$(echo nope).rs", "--view", "staged"]

@@ -81,7 +81,7 @@ jobs:
           path: ${{ runner.temp }}/fastdiff-smoke
           if-no-files-found: ignore
       - name: Package Linux
-        run: bash scripts/package-linux.sh
+        run: bash scripts/package-unix.sh
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x64
@@ -95,7 +95,7 @@ jobs:
 
   release-assets:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, windows]
+    needs: [linux, macos, windows]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -108,6 +108,10 @@ jobs:
           path: dist
       - uses: actions/download-artifact@v4
         with:
+          name: macos-arm64
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
           name: windows-x64-with-wsl-helper
           path: dist
       - name: Prepare release checksums
@@ -117,6 +121,7 @@ jobs:
           name: release-assets
           path: |
             dist/fastdiff-*-linux-x64.tar.gz
+            dist/fastdiff-*-macos-arm64.tar.gz
             dist/fastdiff-*-windows-x64.zip
             dist/SHA256SUMS
           if-no-files-found: error
@@ -150,6 +155,80 @@ jobs:
           python3 scripts/release-draft.py --tag "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --commit "$GITHUB_SHA" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --assets dist --notes-file release-notes.md
+
+  macos:
+    needs: linux
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt, clippy
+      - name: Check and test
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --locked
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Build release
+        run: cargo build --release --locked --workspace
+      - name: Native macOS window smoke test
+        shell: python3 {0}
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          gui = Path('target/release/fastdiff-gui').resolve()
+          with tempfile.TemporaryDirectory(prefix='fastdiff-smoke-') as directory:
+              fixture = Path(directory)
+              subprocess.run(['git', '-C', directory, 'init'], check=True)
+              (fixture / 'smoke.rs').write_text('first line\n', encoding='utf-8')
+              report = fixture / 'report.json'
+              request = json.dumps({
+                  'target': 'repository',
+                  'repository': directory,
+                  'file': list(b'smoke.rs'),
+                  'view': 'all',
+                  'wsl': None,
+              })
+              subprocess.run(
+                  [str(gui), '--request', request, '--smoke-test'],
+                  env={
+                      **os.environ,
+                      'FASTDIFF_BENCH_EXIT_MS': '10000',
+                      'FASTDIFF_BENCH_REPORT': str(report),
+                      'FASTDIFF_RUNTIME_DIR': str(fixture / 'runtime'),
+                  },
+                  check=True,
+                  timeout=30,
+              )
+              result = json.loads(report.read_text(encoding='utf-8'))
+              assert result.get('first_diff_ms') is not None, 'Native GUI did not render a diff'
+      - name: Package macOS
+        run: bash scripts/package-unix.sh
+      - name: Verify macOS archive layout
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          spec = importlib.util.spec_from_file_location('release_draft', 'scripts/release-draft.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          archive = next(Path('dist').glob('fastdiff-*-macos-arm64.tar.gz'))
+          module.verify_tar_archive(archive, archive.name.removesuffix('.tar.gz'), 'macOS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: dist/*.tar.gz
+          if-no-files-found: error
 
   windows:
     needs: linux

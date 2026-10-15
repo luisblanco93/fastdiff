@@ -44,6 +44,17 @@ class UninstallTests(unittest.TestCase):
         self.assertFalse((self.root / "receipt.json").exists())
         self.assertFalse((self.root / "runtimes").exists())
 
+    def test_macos_uninstall_removes_the_macos_package(self):
+        with patch.object(runtime, "download_assets", side_effect=fake_download):
+            runtime.setup(VERSION, "macos", self.root)
+        packages = list((self.root / "versions").iterdir())
+        self.assertEqual(len(packages), 1)
+        self.assertRegex(packages[0].name, r"^[\d.]+-macos-[0-9a-f]{32}$")
+        lifecycle.uninstall("macos", self.root)
+        self.assertFalse((self.root / "versions").exists())
+        self.assertFalse((self.root / "receipt.json").exists())
+        self.assertFalse(self.wrapper.exists())
+
     def test_legacy_runtime_metadata_remains_readable_for_uninstall(self):
         receipt = self.install()
         directory = Path(receipt["command"]).parents[1]

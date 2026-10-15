@@ -23,7 +23,8 @@ class InstallerTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="fastdiff installer test ")
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name) / "fastdiff"
+        # macOS temp dirs sit behind the /var -> /private/var symlink, which the installer refuses.
+        self.root = Path(temporary.name).resolve() / "fastdiff"
         self.runtime = Mock()
         self.runtime.host_platform.return_value = "linux"
         self.runtime.latest_version.return_value = "0.1.3"

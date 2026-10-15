@@ -43,6 +43,14 @@ class WorkflowTests(unittest.TestCase):
         self.assertLess(guard, body.index("cargo build"))
         self.assertIn(TAG_ONLY, body[guard - 120:guard])
 
+    def test_macos_assets_are_built_checked_and_released(self):
+        self.assertIn("runs-on: macos-14", self.jobs["macos"])
+        self.assertIn("scripts/package-unix.sh", self.jobs["macos"])
+        self.assertIn("verify_tar_archive", self.jobs["macos"])
+        self.assertRegex(self.jobs["release-assets"], r"(?m)^    needs: \[linux, macos, windows\]$")
+        self.assertIn("name: macos-arm64", self.jobs["release-assets"])
+        self.assertIn("dist/fastdiff-*-macos-arm64.tar.gz", self.jobs["release-assets"])
+
     def test_tag_checkout_fetches_history_for_the_main_ancestry_check(self):
         self.assertIn("fetch-depth: ${{ startsWith(github.ref, 'refs/tags/v') && '0' || '1' }}",
                       self.jobs["linux"])
