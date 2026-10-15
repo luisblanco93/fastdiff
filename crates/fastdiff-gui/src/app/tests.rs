@@ -79,6 +79,7 @@ pub(super) fn fixture() -> ReviewTab {
         view: View::All,
         presentation: Some(DiffPresentation::new(document, false)),
         loading: false,
+        provisional: false,
         error: None,
         comparison: 1,
         search: String::new(),

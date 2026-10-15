@@ -21,13 +21,44 @@ mod watch;
 pub struct Repository {
     root: PathBuf,
     reflog_layout: Arc<Mutex<Option<reflog_snapshot::ReflogLayout>>>,
+    // Refreshed by every status; a config change is picked up at the next refresh.
+    filter_cache: Arc<Mutex<Option<Vec<OsString>>>>,
 }
 
 #[derive(Default)]
 struct ReviewMetadata {
     filter_overrides: Option<Vec<OsString>>,
-    // One selected path per diff; the outer option also caches a missing index blob.
-    index_blob_size: Option<Option<u64>>,
+}
+
+#[derive(Clone, Copy)]
+struct WorkingTarget<'a> {
+    label: &'a str,
+    staged: bool,
+}
+
+struct BlobSizes {
+    index: Option<u64>,
+    head: Option<u64>,
+}
+
+enum Fetched {
+    Done(Comparison),
+    Patch { label: String, bytes: Vec<u8> },
+}
+
+impl Fetched {
+    fn finish(self, rows: usize) -> Comparison {
+        match self {
+            Self::Done(comparison) => comparison,
+            Self::Patch { label, bytes } => {
+                patch::parse(&label, String::from_utf8_lossy(&bytes).into_owned(), rows)
+            }
+        }
+    }
+}
+
+fn exceeds_source_limit(size: Option<u64>) -> bool {
+    size.is_some_and(|size| size > MAX_SOURCE_BYTES as u64)
 }
 
 impl Repository {
@@ -46,6 +77,7 @@ impl Repository {
         Ok(Self {
             root,
             reflog_layout: Arc::default(),
+            filter_cache: Arc::default(),
         })
     }
 
@@ -84,6 +116,7 @@ impl Repository {
             (Vec::new(), None)
         };
         if view == View::Unpushed {
+            self.remember_filter_overrides(&metadata);
             return Ok((committed, notice));
         }
         let mut command = self.review_command(&mut metadata, cancel)?;
@@ -96,6 +129,7 @@ impl Repository {
             "--ignore-submodules=none",
         ]);
         let working = parse_status(&checked(run(command, 16 * 1024 * 1024, cancel)?)?, view)?;
+        self.remember_filter_overrides(&metadata);
         Ok((merge_changes(working, committed), notice))
     }
 
@@ -116,7 +150,9 @@ impl Repository {
                 self.validate_path(old)?;
             }
         }
-        let mut metadata = ReviewMetadata::default();
+        let mut metadata = ReviewMetadata {
+            filter_overrides: self.cached_filter_overrides(),
+        };
         let mut comparisons = Vec::new();
         if matches!(view, View::All | View::Unpushed)
             && let Some(committed) = &change.committed
@@ -130,31 +166,28 @@ impl Repository {
             ));
             return Ok(DiffDocument { comparisons });
         }
+        let mut targets = Vec::new();
         if change.staged && matches!(view, View::All | View::Staged) {
-            comparisons.push(self.comparison(
-                change,
-                "Staged",
-                true,
-                remaining_rows(&comparisons),
-                &mut metadata,
-                cancel,
-            )?);
+            targets.push(WorkingTarget {
+                label: "Staged",
+                staged: true,
+            });
         }
         if change.unstaged && matches!(view, View::All | View::Unstaged) {
-            let remaining = remaining_rows(&comparisons);
-            let label = if change.untracked {
-                "Untracked"
-            } else {
-                "Unstaged"
-            };
-            comparisons.push(self.comparison(
-                change,
-                label,
-                false,
-                remaining,
-                &mut metadata,
-                cancel,
-            )?);
+            targets.push(WorkingTarget {
+                label: if change.untracked {
+                    "Untracked"
+                } else {
+                    "Unstaged"
+                },
+                staged: false,
+            });
+        }
+        // The Git processes for every comparison run together; each row budget is applied
+        // afterwards, in display order, so the document matches the sequential result.
+        for fetched in self.fetch_working(change, &targets, &mut metadata, cancel)? {
+            let rows = remaining_rows(&comparisons);
+            comparisons.push(fetched.finish(rows));
         }
         Ok(DiffDocument { comparisons })
     }
@@ -267,47 +300,51 @@ impl Repository {
         if let Some(old) = &committed.old_path {
             old.relative_path()?;
         }
-        let oversized = self.prefetched(metadata, cancel, |_| -> Result<bool> {
-            for (id, path) in [
-                (
+        let (oversized, patch) = self.speculative(
+            metadata,
+            cancel,
+            || -> Result<bool> {
+                let base_path = committed.old_path.as_ref().unwrap_or(&committed.path);
+                let (base, head) = thread::scope(|scope| {
+                    let base = scope.spawn(|| {
+                        self.blob_size(format!("{}:", committed.base).as_bytes(), base_path, cancel)
+                    });
+                    let head = self.blob_size(
+                        format!("{}:", committed.head).as_bytes(),
+                        &committed.path,
+                        cancel,
+                    );
+                    (join_scoped(base), head)
+                });
+                Ok(exceeds_source_limit(base?) || exceeds_source_limit(head?))
+            },
+            |overrides| -> Result<GitOutput> {
+                let mut command = self.diff_command(overrides);
+                command.args([
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-color",
+                    "--unified=30",
+                    "--find-renames",
+                    "--no-relative",
                     &committed.base,
-                    committed.old_path.as_ref().unwrap_or(&committed.path),
-                ),
-                (&committed.head, &committed.path),
-            ] {
-                if self
-                    .blob_size(format!("{id}:").as_bytes(), path, cancel)?
-                    .is_some_and(|size| size > MAX_SOURCE_BYTES as u64)
-                {
-                    return Ok(true);
+                    &committed.head,
+                    "--",
+                ]);
+                command.arg(committed.path.relative_path()?);
+                if let Some(old) = &committed.old_path {
+                    command.arg(old.relative_path()?);
                 }
-            }
-            Ok(false)
-        })?;
-        if oversized {
+                run(command, MAX_PATCH_BYTES, cancel)
+            },
+        );
+        if oversized? {
             return Ok(patch::summary(
                 "Unpushed",
                 "File exceeds the 10 MiB automatic text loading limit.",
             ));
         }
-        let mut command = self.review_command(metadata, cancel)?;
-        command.args([
-            "diff",
-            "--no-ext-diff",
-            "--no-textconv",
-            "--no-color",
-            "--unified=30",
-            "--find-renames",
-            "--no-relative",
-            &committed.base,
-            &committed.head,
-            "--",
-        ]);
-        command.arg(committed.path.relative_path()?);
-        if let Some(old) = &committed.old_path {
-            command.arg(old.relative_path()?);
-        }
-        let bytes = match run(command, MAX_PATCH_BYTES, cancel) {
+        let bytes = match patch? {
             Err(Error::OutputLimit) => {
                 return Ok(patch::summary(
                     "Unpushed",
@@ -323,28 +360,123 @@ impl Repository {
         ))
     }
 
-    fn comparison(
+    /// Fetch the staged and unstaged comparisons of one file with a single round of Git
+    /// processes: blob sizes and every diff start together. Results are interpreted in
+    /// display order so oversize summaries and errors match the sequential behavior.
+    fn fetch_working(
         &self,
         change: &FileChange,
-        label: &str,
-        staged: bool,
-        rows: usize,
+        targets: &[WorkingTarget<'_>],
         metadata: &mut ReviewMetadata,
         cancel: &CancelToken,
-    ) -> Result<Comparison> {
-        let oversized = self.oversized_on_disk(change, staged, cancel)?
-            || self.prefetched(metadata, cancel, |metadata| {
-                self.oversized_in_git(change, staged, metadata, cancel)
-            })?;
-        if oversized {
-            return Ok(patch::summary(
-                label,
-                "File exceeds the 10 MiB automatic text loading limit.",
-            ));
+    ) -> Result<Vec<Fetched>> {
+        let mut fetched: Vec<Option<Fetched>> = targets.iter().map(|_| None).collect();
+        let mut pending = Vec::new();
+        for (index, target) in targets.iter().enumerate() {
+            if self.oversized_on_disk(change, target.staged, cancel)? {
+                fetched[index] = Some(Fetched::Done(patch::summary(
+                    target.label,
+                    "File exceeds the 10 MiB automatic text loading limit.",
+                )));
+            } else {
+                pending.push(index);
+            }
         }
-        let mut command = self.review_command(metadata, cancel)?;
+        if !pending.is_empty() {
+            let needs_index = |target: &WorkingTarget<'_>| !change.untracked || target.staged;
+            let need_index = pending.iter().any(|&index| needs_index(&targets[index]));
+            let need_head = pending.iter().any(|&index| targets[index].staged);
+            let (sizes, outputs) = self.speculative(
+                metadata,
+                cancel,
+                || self.blob_sizes(change, need_index, need_head, cancel),
+                |overrides| {
+                    thread::scope(|scope| {
+                        let handles: Vec<_> = pending
+                            .iter()
+                            .map(|&index| {
+                                let staged = targets[index].staged;
+                                scope.spawn(move || {
+                                    self.working_diff(change, staged, overrides, cancel)
+                                })
+                            })
+                            .collect();
+                        handles.into_iter().map(join_scoped).collect::<Vec<_>>()
+                    })
+                },
+            );
+            let sizes = sizes?;
+            // A probe failure is reported only where a diff would have needed it, so an
+            // oversize summary still wins, as in the sequential code.
+            let mut outputs = match outputs {
+                Ok(outputs) => outputs
+                    .into_iter()
+                    .map(Some)
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+                Err(error) => {
+                    let all_oversized = pending.iter().all(|&index| {
+                        let target = targets[index];
+                        (needs_index(&target) && exceeds_source_limit(sizes.index))
+                            || (target.staged && exceeds_source_limit(sizes.head))
+                    });
+                    if !all_oversized {
+                        return Err(error);
+                    }
+                    Vec::new().into_iter()
+                }
+            };
+            for &index in &pending {
+                let target = targets[index];
+                let output = outputs.next().flatten();
+                let oversized = (needs_index(&target) && exceeds_source_limit(sizes.index))
+                    || (target.staged && exceeds_source_limit(sizes.head));
+                if oversized {
+                    fetched[index] = Some(Fetched::Done(patch::summary(
+                        target.label,
+                        "File exceeds the 10 MiB automatic text loading limit.",
+                    )));
+                    continue;
+                }
+                let output = output
+                    .ok_or_else(|| Error::InvalidData("missing speculative diff result".into()))?;
+                let output = match output {
+                    Err(Error::OutputLimit) => {
+                        fetched[index] = Some(Fetched::Done(patch::summary(
+                            target.label,
+                            "Patch exceeds the 2 MiB automatic preview limit.",
+                        )));
+                        continue;
+                    }
+                    other => other?,
+                };
+                let bytes = if change.untracked && !target.staged && output.status.code() == Some(1)
+                {
+                    output.stdout
+                } else {
+                    checked(output)?
+                };
+                fetched[index] = Some(Fetched::Patch {
+                    label: target.label.into(),
+                    bytes,
+                });
+            }
+        }
+        fetched
+            .into_iter()
+            .map(|entry| entry.ok_or_else(|| Error::InvalidData("missing comparison".into())))
+            .collect()
+    }
+
+    fn working_diff(
+        &self,
+        change: &FileChange,
+        staged: bool,
+        overrides: &[OsString],
+        cancel: &CancelToken,
+    ) -> Result<GitOutput> {
+        let mut command = self.diff_command(overrides);
         command.args([
-            "diff",
             "--no-ext-diff",
             "--no-textconv",
             "--no-color",
@@ -365,25 +497,101 @@ impl Repository {
                 command.arg(old.relative_path()?);
             }
         }
-        let output = match run(command, MAX_PATCH_BYTES, cancel) {
-            Err(Error::OutputLimit) => {
-                return Ok(patch::summary(
-                    label,
-                    "Patch exceeds the 2 MiB automatic preview limit.",
-                ));
+        run(command, MAX_PATCH_BYTES, cancel)
+    }
+
+    /// Index and HEAD blob sizes are independent, so they are read together.
+    fn blob_sizes(
+        &self,
+        change: &FileChange,
+        need_index: bool,
+        need_head: bool,
+        cancel: &CancelToken,
+    ) -> Result<BlobSizes> {
+        thread::scope(|scope| {
+            let head = need_head.then(|| {
+                scope.spawn(|| {
+                    let old = change.old_path.as_ref().unwrap_or(&change.path);
+                    self.blob_size(b"HEAD:", old, cancel)
+                })
+            });
+            let index = if need_index {
+                self.blob_size(b":", &change.path, cancel)
+            } else {
+                Ok(None)
+            };
+            let head = head.map(join_scoped).transpose()?.flatten();
+            Ok(BlobSizes {
+                index: index?,
+                head,
+            })
+        })
+    }
+
+    /// Run `diff` beside `check`. With known filter overrides both start together; otherwise
+    /// the probe overlaps `check` and `diff` follows it. Callers consume `check` first and
+    /// `diff` second, so errors surface in the order the sequential code reported them.
+    fn speculative<S, D: Send>(
+        &self,
+        metadata: &mut ReviewMetadata,
+        cancel: &CancelToken,
+        check: impl FnOnce() -> S,
+        diff: impl FnOnce(&[OsString]) -> D + Send,
+    ) -> (S, Result<D>) {
+        if let Some(overrides) = metadata.filter_overrides.clone() {
+            return thread::scope(|scope| {
+                let diff = scope.spawn(|| diff(&overrides));
+                let checked = check();
+                (checked, Ok(join_scoped(diff)))
+            });
+        }
+        let (checked, probed) = thread::scope(|scope| {
+            let probe = scope.spawn(|| self.filter_overrides(cancel));
+            (check(), join_scoped(probe))
+        });
+        match probed {
+            Ok(overrides) => {
+                let result = diff(&overrides);
+                metadata.filter_overrides = Some(overrides);
+                (checked, Ok(result))
             }
-            other => other?,
-        };
-        let bytes = if change.untracked && !staged && output.status.code() == Some(1) {
-            output.stdout
-        } else {
-            checked(output)?
-        };
-        Ok(patch::parse(
-            label,
-            String::from_utf8_lossy(&bytes).into_owned(),
-            rows,
-        ))
+            Err(error) => (checked, Err(error)),
+        }
+    }
+
+    fn cached_filter_overrides(&self) -> Option<Vec<OsString>> {
+        self.filter_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    /// Status refreshes run the probe anyway; keeping its result lets later diffs skip it.
+    fn remember_filter_overrides(&self, metadata: &ReviewMetadata) {
+        if let Some(overrides) = &metadata.filter_overrides {
+            *self
+                .filter_cache
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(overrides.clone());
+        }
+    }
+
+    fn diff_command(&self, overrides: &[OsString]) -> Command {
+        let mut command = self.command_with_overrides(overrides);
+        // An oversized blob that reaches a speculative diff is treated as binary, not loaded.
+        command
+            .arg("-c")
+            .arg(format!("core.bigFileThreshold={MAX_SOURCE_BYTES}"));
+        command.arg("diff");
+        command
+    }
+
+    fn command_with_overrides(&self, overrides: &[OsString]) -> Command {
+        let mut command = git_command(&self.root);
+        for value in overrides {
+            command.arg("-c").arg(value);
+        }
+        command
     }
 
     /// The working-tree size check needs no Git process, so it runs before any probe starts.
@@ -403,39 +611,6 @@ impl Repository {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
             Err(error) => Err(error.into()),
         }
-    }
-
-    fn oversized_in_git(
-        &self,
-        change: &FileChange,
-        staged: bool,
-        metadata: &mut ReviewMetadata,
-        cancel: &CancelToken,
-    ) -> Result<bool> {
-        if change.untracked && !staged {
-            return Ok(false);
-        }
-        let index_size = match metadata.index_blob_size {
-            Some(size) => size,
-            None => {
-                let size = self.blob_size(b":", &change.path, cancel)?;
-                metadata.index_blob_size = Some(size);
-                size
-            }
-        };
-        if index_size.is_some_and(|size| size > MAX_SOURCE_BYTES as u64) {
-            return Ok(true);
-        }
-        if staged {
-            let old = change.old_path.as_ref().unwrap_or(&change.path);
-            if self
-                .blob_size(b"HEAD:", old, cancel)?
-                .is_some_and(|size| size > MAX_SOURCE_BYTES as u64)
-            {
-                return Ok(true);
-            }
-        }
-        Ok(false)
     }
 
     fn blob_size(
@@ -543,10 +718,8 @@ impl Repository {
         if metadata.filter_overrides.is_none() {
             metadata.filter_overrides = Some(self.filter_overrides(cancel)?);
         }
-        let mut command = git_command(&self.root);
-        for value in metadata.filter_overrides.as_deref().unwrap_or_default() {
-            command.arg("-c").arg(value);
-        }
+        let command =
+            self.command_with_overrides(metadata.filter_overrides.as_deref().unwrap_or_default());
         Ok(command)
     }
 }
