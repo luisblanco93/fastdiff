@@ -51,6 +51,7 @@ Every step that writes outside the working tree (push, tag, publish) needs the m
 2. **Prepare** on a branch: `python3 scripts/bump-version.py X.Y.Z`, then move the `Unreleased` entries into a new `## [X.Y.Z] - YYYY-MM-DD` changelog section, add migration notes where needed, and open a release-preparation pull request. The release notes are that section, not a commit list.
 3. **Validate locally** with the CI toolchain (Rust 1.90, Python 3.11) before pushing:
    ```bash
+   python3 -m pip install pyyaml==6.0.3   # once; scripts/test_release_workflow.py parses the workflow
    cargo fmt --all -- --check
    cargo clippy --workspace --all-targets --locked -- -D warnings
    cargo test --workspace --locked
