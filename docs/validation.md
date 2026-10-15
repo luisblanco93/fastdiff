@@ -6,24 +6,28 @@ This page indexes validation evidence for fastdiff. Record evidence for a releas
 
 ### Release 1.1.0
 
-Recorded 2026-10-15 from revision `107274ce12a334d016872bc297377b4226c1b6b1`. Tagged CI run: [38798728033](https://github.com/luisblanco93/fastdiff/actions/runs/38798728033), dispatched by the `v1.1.0` tag push.
+Recorded 2026-10-15 from revision `704591def29393a112c1f3efdbbfff1cce415c22`. Tagged CI run: [38816468381](https://github.com/luisblanco93/fastdiff/actions/runs/38816468381), dispatched by the `v1.1.0` tag push.
+
+The first `v1.1.0` tag (revision `107274ce12a334d016872bc297377b4226c1b6b1`, run [38798728033](https://github.com/luisblanco93/fastdiff/actions/runs/38798728033)) was never published. It was deleted and re-created on the commit above to include #24, #25, and #26 (Unpushed without an upstream, LIT-32), as allowed for unpublished versions in [releasing](releasing.md). Evidence below is for the re-created tag only.
 
 #### Checks run
-- CI on Ubuntu 22.04, macOS 14 (Apple Silicon), and Windows (Rust 1.90, Python 3.11): fmt, Clippy `-D warnings`, workspace and script tests, coverage, release builds, native window smoke checks, and packaging passed in the concurrent layout. `windows-package` packaged the Windows binaries with the Linux helper from the same run. The `draft-release` job created the draft, and the `result` job passed.
-- Local gate on Linux/WSL2 (Rust 1.90): fmt, Clippy, 483 Rust tests passed (2 ignored), 296 Python tests passed (3 skipped).
+- CI on Ubuntu 22.04, macOS 14 (Apple Silicon), and Windows (Rust 1.90, Python 3.11): fmt, Clippy `-D warnings`, workspace and script tests, coverage, release builds, native window smoke checks, and packaging passed in the concurrent layout. `windows-package` packaged the Windows binaries with the Linux helper from the same run. The `draft-release` job created the draft (commit `704591d`, four assets), and the `result` job passed.
+- Local gate on Linux/WSL2 at `704591d` (Rust 1.90.0, Python 3.11.15): fmt, Clippy `--locked -D warnings`, 493 Rust tests passed (2 ignored), locked release build, 296 Python tests passed (3 skipped), and `release-guard.py --tag v1.1.0` reported consistent metadata.
 - Downloaded the three archives and `SHA256SUMS` from the run and verified them with `sha256sum -c`; checked each archive's file list; the `wsl/fastdiff` helper in the Windows archive is byte-identical to the Linux `bin/fastdiff`.
 - Linux x86_64 archive on WSL2 Ubuntu: `fastdiff --version` printed `fastdiff 1.1.0 (helper protocol 5)` and `--help` ran.
-- macOS: screenshots from CI builds of the same source (hosted `macos-14`, not the tagged archive) showed the window rendering a repository, dark chrome and title bar, `Cmd` shortcuts and the help list, live refresh of an open file, and a CJK file name drawn with real characters ([38788844832](https://github.com/luisblanco93/fastdiff/actions/runs/38788844832)).
+- LIT-32: a debug build of the same change opened natively on Linux on a repository with a never-pushed branch, before the merge; the tagged archives were not opened on such a repository.
+- macOS: screenshots from CI builds of earlier source (hosted `macos-14`, not the tagged archive) showed the window rendering a repository, dark chrome and title bar, `Cmd` shortcuts and the help list, live refresh of an open file, and a CJK file name drawn with real characters ([38788844832](https://github.com/luisblanco93/fastdiff/actions/runs/38788844832)).
 
 #### Artifact verification
 | Archive | Bytes | SHA-256 |
 |---|---:|---|
-| `fastdiff-1.1.0-linux-x64.tar.gz` | 5,497,174 | `0b7c2a632c543546bf9aab0b06b6d77d9e6c400a718397d72884e756aeee9804` |
-| `fastdiff-1.1.0-macos-arm64.tar.gz` | 3,488,301 | `4a21b70f6ffe8856038ae1e2e212f50b526441c2d657c275fb888a50dc1abc7e` |
-| `fastdiff-1.1.0-windows-x64.zip` | 4,022,906 | `e26854008de4d77c1e8452031b9de00a7352d46aefc4f9476b9aefd452219778` |
+| `fastdiff-1.1.0-linux-x64.tar.gz` | 5,506,494 | `5ae652cb09c271d6cb86bbe8d7c1275f955f1ff2f4b9e91891ed59ed87a5244b` |
+| `fastdiff-1.1.0-macos-arm64.tar.gz` | 3,495,880 | `23894fe751dc08ef49bcfde9e8d7417d6590ef6c20bdb9256ab582f5b4ebad17` |
+| `fastdiff-1.1.0-windows-x64.zip` | 4,034,026 | `ec2e2043053d061168233b91e58b38f6712de44cecee0e3eed6c317f94422532` |
 
 #### Limits
-- The macOS archive itself was not run on a Mac. The screenshots are from CI builds of the same source before the version bump, taken through scripted keystrokes, and the binaries are not signed or notarized.
+- The macOS archive itself was not run on a Mac. The screenshots are from CI builds of earlier source, taken through scripted keystrokes, and the binaries are not signed or notarized.
+- The LIT-32 Unpushed fallback was not exercised on native Windows, macOS, or Windows-to-WSL; its per-refresh cost on branches without an upstream was not measured.
 - No interactive window was opened from the Windows archive, and Windows-to-WSL was not exercised on this build.
 - The 10-repetition worker test check on native Windows was not run, so LIT-21 and LIT-31 stability on Windows is not proven. The dark native title bar and the Windows CJK font candidates are unverified there.
 - Linux CJK font candidates were not exercised; no CJK font was present on the test host.
