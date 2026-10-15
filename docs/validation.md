@@ -113,7 +113,20 @@ Runs only for `v*` tags and manual dispatch.
 - **Concurrent verification:** `linux` and `windows` run format, Clippy, Rust and Python tests, a release build, and the native smoke test independently. `windows-package` needs both and is the only place the Windows archive is built, from the `windows` binaries and the `linux` helper of the same run.
 - **Final result:** the `result` job always runs and fails on any failed, cancelled, or unexpectedly skipped job (`scripts/ci-result.py`). `release-assets` and `draft-release` may be skipped only on manual runs. Add every new job to its `needs`.
 - **Caches** hold dependency inputs only: the Cargo registry and Git sources with `target/debug`, and the pinned `cargo-llvm-cov` tool with its build directory. Keys are separated by platform, architecture, toolchain, and `Cargo.lock`/`Cargo.toml` hashes. A tag run cannot restore another tag's cache but can restore the default branch's, so a natural tag run is cold unless a manual dispatch on `main` seeded the cache; the caches mainly help re-runs and manual runs. `target/release` and `dist/` are never cached, so shipped binaries are always built from the candidate in that run.
-- **Timing:** the last measured successful tagged run (1.0.0, [38480276396](https://github.com/luisblanco93/fastdiff/actions/runs/38480276396)) took about 6m12s on Linux and 6m49s on Windows, run in sequence. Cold and warm timings for this layout are not yet measured; record them from a manual dispatch (cold, then warm on the same ref) rather than waiting for a tag run.
+- **Timing** (manual dispatches on `main` at `040f824`, one cold then one warm; single samples, so runner variance applies):
+
+  | | Cold ([38777925584](https://github.com/luisblanco93/fastdiff/actions/runs/38777925584)) | Warm ([38779139454](https://github.com/luisblanco93/fastdiff/actions/runs/38779139454)) |
+  | -- | --: | --: |
+  | Whole workflow | 8m07s | 6m05s |
+  | `linux` job | 6m07s | 4m35s |
+  | `windows` job | 7m32s | 5m25s |
+  | `macos` job (not cached) | 4m35s | 3m14s |
+  | `windows-package` | 21s | 28s |
+  | Linux: Clippy / Rust tests / coverage tool install / coverage | 41s / 79s / 47s / 17s | 5s / 29s / skipped / 13s |
+  | Windows: Clippy / Rust tests | 65s / 152s | 6s / 85s |
+  | Release build, Linux / Windows (never cached) | 115s / 141s | 144s / 105s |
+
+  The 1.0.0 tagged run (38480276396) ran Linux then Windows in sequence for about 13 minutes of verification. The cache saves roughly 30-40 s of Clippy and 45-70 s of tests per platform and skips the 47 s coverage-tool install; release builds are unchanged by design. macOS has no cache yet, so its 1m21s difference is runner variance, which bounds how much of the other differences can be trusted.
 
 ## CI failure classification (LIT-27)
 
