@@ -356,41 +356,53 @@ mod tests {
     use super::fallback_config_paths;
     use std::{collections::HashMap, ffi::OsString, path::PathBuf};
 
-    fn environment(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {
+    fn environment(pairs: &[(&str, PathBuf)]) -> impl Fn(&str) -> Option<OsString> {
         let map: HashMap<String, OsString> = pairs
             .iter()
-            .map(|(key, value)| ((*key).to_owned(), OsString::from(value)))
+            .map(|(key, value)| ((*key).to_owned(), value.clone().into_os_string()))
             .collect();
         move |name| map.get(name).cloned()
     }
 
+    // Absolute on every platform; a bare "/home/u" has no drive letter on Windows.
+    fn base() -> PathBuf {
+        std::env::temp_dir().join("fastdiff-config-fallback")
+    }
+
     #[test]
     fn global_fallback_uses_xdg_then_home_like_git_var() {
-        let paths = fallback_config_paths("GIT_CONFIG_GLOBAL", environment(&[("HOME", "/home/u")]));
+        let home = base().join("home");
+        let paths =
+            fallback_config_paths("GIT_CONFIG_GLOBAL", environment(&[("HOME", home.clone())]));
         assert_eq!(
             paths,
             [
-                PathBuf::from("/home/u/.config/git/config"),
-                PathBuf::from("/home/u/.gitconfig")
+                home.join(".config").join("git").join("config"),
+                home.join(".gitconfig")
             ]
         );
+        let xdg = base().join("xdg");
         let paths = fallback_config_paths(
             "GIT_CONFIG_GLOBAL",
-            environment(&[("HOME", "/home/u"), ("XDG_CONFIG_HOME", "/xdg")]),
+            environment(&[("HOME", home), ("XDG_CONFIG_HOME", xdg.clone())]),
         );
-        assert_eq!(paths[0], PathBuf::from("/xdg/git/config"));
+        assert_eq!(paths[0], xdg.join("git").join("config"));
     }
 
     #[test]
     fn explicit_variable_overrides_defaults_and_relative_paths_are_ignored() {
+        let custom = base().join("custom");
         let paths = fallback_config_paths(
             "GIT_CONFIG_GLOBAL",
-            environment(&[("HOME", "/home/u"), ("GIT_CONFIG_GLOBAL", "/etc/custom")]),
+            environment(&[
+                ("HOME", base().join("home")),
+                ("GIT_CONFIG_GLOBAL", custom.clone()),
+            ]),
         );
-        assert_eq!(paths, [PathBuf::from("/etc/custom")]);
+        assert_eq!(paths, [custom]);
         let relative = fallback_config_paths(
             "GIT_CONFIG_SYSTEM",
-            environment(&[("GIT_CONFIG_SYSTEM", "x")]),
+            environment(&[("GIT_CONFIG_SYSTEM", PathBuf::from("relative"))]),
         );
         assert!(relative.is_empty());
     }
@@ -398,8 +410,11 @@ mod tests {
     #[test]
     fn system_fallback_is_empty_without_an_override() {
         assert!(
-            fallback_config_paths("GIT_CONFIG_SYSTEM", environment(&[("HOME", "/home/u")]))
-                .is_empty()
+            fallback_config_paths(
+                "GIT_CONFIG_SYSTEM",
+                environment(&[("HOME", base().join("home"))])
+            )
+            .is_empty()
         );
     }
 }
