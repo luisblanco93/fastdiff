@@ -1,3 +1,4 @@
+use super::test_support::{wait_event, wait_events, wait_reflog};
 use super::*;
 use fastdiff_cli::{HelperClient, WslTarget};
 use std::{fs, os::unix::fs::PermissionsExt, path::Path};
@@ -113,29 +114,10 @@ fn spawn_request(
     worker
 }
 
-fn wait_event(worker: &Worker, accepts: impl Fn(&Event) -> bool) -> Event {
-    wait_events(worker, &accepts)
-        .into_iter()
-        .find(accepts)
-        .unwrap()
-}
-
-fn wait_events(worker: &Worker, accepts: impl Fn(&Event) -> bool) -> Vec<Event> {
-    let deadline = Instant::now() + WAIT;
-    let mut events = Vec::new();
-    while Instant::now() < deadline {
-        events.extend(worker.drain_events());
-        if events.iter().any(&accepts) {
-            return events;
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
-    panic!("worker did not publish the expected recovery event");
-}
-
 fn status(worker: &Worker, generation: u64) -> Event {
     wait_event(
         worker,
+        generation,
         |event| matches!(event, Event::Status { generation: actual, .. } if *actual == generation),
     )
 }
@@ -143,7 +125,7 @@ fn status(worker: &Worker, generation: u64) -> Event {
 fn disconnect(worker: &Worker, script: &Path) {
     fs::write(script.with_extension("stop"), "stop").unwrap();
     worker.refresh(1, View::All);
-    wait_event(worker, |event| {
+    wait_event(worker, 1, |event| {
         matches!(
             event,
             Event::Error { generation: 1, .. } | Event::ReflogError { .. }
@@ -228,7 +210,7 @@ fn idle_disconnect_and_failed_reconnection_wait_for_another_explicit_refresh() {
     wait_until(|| log(&first).contains("idle_exit"));
     thread::sleep(Duration::from_millis(100));
     worker.refresh(1, View::All);
-    let event = wait_event(&worker, |event| {
+    let event = wait_event(&worker, 1, |event| {
         matches!(event, Event::Error { generation: 1, .. })
     });
     assert!(
@@ -274,26 +256,24 @@ fn document_reconnection_resets_prepared_state_and_reloads_the_open_reflog() {
     let Event::Diff {
         document: old_document,
         ..
-    } = wait_event(&worker, |event| {
+    } = wait_event(&worker, 1, |event| {
         matches!(event, Event::Diff { generation: 1, .. })
     })
     else {
         unreachable!()
     };
     worker.reflog(9, true);
-    wait_event(&worker, |event| {
-        matches!(event, Event::Reflog { generation: 9, .. })
-    });
+    wait_reflog(&worker, 9);
     fs::write(first.with_extension("stop"), "stop").unwrap();
     worker.document(2, "/original/repository/readme.md".into(), View::All);
-    wait_event(&worker, |event| {
+    wait_event(&worker, 2, |event| {
         matches!(
             event,
             Event::Error { generation: 2, .. } | Event::ReflogError { .. }
         )
     });
     worker.document(3, "/original/repository/readme.md".into(), View::All);
-    let events = wait_events(&worker, |event| {
+    let events = wait_events(&worker, 3, |event| {
         matches!(event, Event::Status { generation: 3, .. })
     });
     let Event::Status { files, .. } = events
@@ -348,16 +328,18 @@ fn original_document_target_reconnects_with_and_without_a_repository() {
         );
         wait_event(
             &worker,
+            0,
             |event| matches!(event, Event::Diff { generation: 0, document } if document.is_document),
         );
         fs::write(first.with_extension("stop"), "stop").unwrap();
         worker.document(1, "/original/readme.md".into(), View::All);
-        wait_event(&worker, |event| {
+        wait_event(&worker, 1, |event| {
             matches!(event, Event::Error { generation: 1, .. })
         });
         worker.document(2, "/original/readme.md".into(), View::All);
         wait_event(
             &worker,
+            2,
             |event| matches!(event, Event::Diff { generation: 2, document } if document.is_document),
         );
     }
@@ -419,7 +401,11 @@ fn newer_refresh_cancels_discovery_without_losing_the_latest_request() {
             0 => HelperClient::spawn(&first_discovery, &original.repository).map(Backend::Wsl),
             1 => {
                 entered.send(token.clone()).unwrap();
-                gate.recv_timeout(WAIT).unwrap();
+                if gate.recv().is_err() {
+                    return Err(fastdiff_cli::Error::Backend(
+                        "test release gate dropped".into(),
+                    ));
+                }
                 assert!(token.is_cancelled());
                 Err(fastdiff_cli::Error::Backend(
                     "stale discovery failure".into(),
@@ -428,14 +414,16 @@ fn newer_refresh_cancels_discovery_without_losing_the_latest_request() {
             _ => HelperClient::spawn(&second, &original.repository).map(Backend::Wsl),
         },
     );
+    // Release blocked discovery before Worker::drop joins during a failing assertion.
+    let release_on_failure = release;
     status(&worker, 0);
     disconnect(&worker, &first);
     worker.refresh(2, View::All);
     let token = discovery_started.recv_timeout(WAIT).unwrap();
     worker.refresh(3, View::Staged);
     assert!(token.is_cancelled());
-    release.send(()).unwrap();
-    let events = wait_events(&worker, |event| {
+    release_on_failure.send(()).unwrap();
+    let events = wait_events(&worker, 3, |event| {
         matches!(event, Event::Status { generation: 3, .. })
     });
     assert_eq!(attempts.load(Ordering::Acquire), 3);
@@ -482,7 +470,7 @@ fn refresh_queued_during_terminal_cleanup_is_preserved() {
     let cleanup_token = worker.shared.active.lock().unwrap().clone();
     worker.refresh(2, View::Staged);
     assert!(cleanup_token.is_cancelled());
-    let events = wait_events(&worker, |event| {
+    let events = wait_events(&worker, 2, |event| {
         matches!(event, Event::Status { generation: 2, .. })
     });
     assert!(
