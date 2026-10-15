@@ -8,7 +8,7 @@ For an agent handling an app installation request: execute this recipe directly 
 
 ## Install fastdiff
 
-Requires Python 3.11+ and HTTPS access to `luisblanco93/fastdiff` and its [releases](https://github.com/luisblanco93/fastdiff/releases). The repository is public, so no GitHub account, token, or GitHub CLI is needed. The installer downloads the latest stable release. Preserve existing installations on download failure. Supported environments are Linux x64 with glibc and X11/Wayland plus OpenGL, macOS 14 or newer on Apple Silicon (arm64; Intel Macs are not supported), native Windows x64, and WSL2 with Windows interoperability, `powershell.exe`, and `wslpath`. Git is needed only for reviewing repositories.
+Requires Python 3.11+ and HTTPS access to `luisblanco93/fastdiff` and its [releases](https://github.com/luisblanco93/fastdiff/releases). The repository is public, so no GitHub account, token, or GitHub CLI is needed. The installer downloads the latest stable release. Preserve existing installations on download failure. Supported environments are Linux x64 with glibc and X11/Wayland plus OpenGL, macOS 14 or newer on Apple Silicon (arm64; Intel Macs are not supported; available from the first release that includes the `macos-arm64` archive, which release 1.0.1 does not), native Windows x64, and WSL2 with Windows interoperability, `powershell.exe`, and `wslpath`. Git is needed only for reviewing repositories.
 
 Run one command for your platform to install terminal `dff`.
 

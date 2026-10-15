@@ -54,7 +54,7 @@ Recorded 2026-10-06: 30 cold launches each on an earlier build, 2-file repositor
 - **Everything that changed, in one place.** Unstaged, staged, unpushed commits, and untracked files, each labeled, plus the local reflog.
 - **Built for coding agents.** `dff` returns as soon as the window accepts the request, so an agent can open the diff and carry on. A shared [skill](skills/fastdiff/SKILL.md) works with any agent that has a shell.
 - **Read-only by design.** No staging, editing, or reverting. Opening a diff cannot change your repository.
-- **Linux, macOS, and Windows.** Native windows on all three (Apple Silicon on macOS), with a paired helper for repositories that live in WSL.
+- **Linux, macOS, and Windows.** Native windows on all three (Apple Silicon on macOS, from the first release that includes a macOS archive), with a paired helper for repositories that live in WSL.
 
 ## Install
 
