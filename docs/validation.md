@@ -74,6 +74,7 @@ cargo test -p fastdiff-core --locked                        # core library and t
 cargo test -p fastdiff-cli --locked --test protocol         # helper protocol; also: ipc, launcher, launch_process
 cargo test -p fastdiff-gui --locked worker::                # worker, cache, watcher, reflog, recovery
 cargo test -p fastdiff-gui --locked app::                   # app state, sidebar, shortcuts
+python3 -m pip install pyyaml==6.0.3                      # once; test_release_workflow parses the workflow as YAML
 python3 -m unittest scripts.test_release_workflow           # any scripts/test_*.py module
 python3 -m unittest discover -s scripts -p 'test_*.py'      # all Python tests
 ```
