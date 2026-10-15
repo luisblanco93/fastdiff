@@ -4,9 +4,11 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-15
+
 ### Added
 
-- A macOS (Apple Silicon) build: a `fastdiff-<version>-macos-arm64.tar.gz` release archive that the installer sets up as `dff`. Shortcuts use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> on macOS.
+- A macOS (Apple Silicon) build: a `fastdiff-<version>-macos-arm64.tar.gz` release archive that the installer sets up as `dff`. Shortcuts use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> on macOS. The macOS binaries are not signed or notarized.
 
 ### Fixed
 
