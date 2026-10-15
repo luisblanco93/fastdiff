@@ -74,8 +74,9 @@ Every step that writes outside the working tree (push, tag, publish) needs the m
 
 ### Recovery
 
-- **Never move or recreate a release tag and never overwrite published assets.** The installer's downgrade protection depends on it.
-- If tagged CI fails, record the exact command, platform, revision, and run link, fix the cause on `main`, and release under a new patch version. Re-running the failed jobs of the same run is fine; it does not change the tag.
+- **Never move or recreate the tag of a published release and never overwrite published assets.** The installer's downgrade protection depends on published versions staying immutable.
+- **A version that was never published may be re-tagged.** If tagged CI fails before a draft exists, or a draft is rejected during inspection, no installer can have seen that version. Record the exact command, platform, revision, and run link, fix the cause on `main`, delete the draft release if one exists, delete the tag locally and on `origin`, and tag the fixed commit with the same version. Each tag deletion and push needs the maintainer's explicit authorization, like any tag push. Do not bump the version only because an unpublished attempt failed.
+- Re-running the failed jobs of the same run is fine; it does not change the tag.
 - A defect in a published release is fixed by a new version.
 
 ## First release (1.0.0)
