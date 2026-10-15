@@ -147,6 +147,7 @@ mod tests {
             server: None,
             benchmark: Benchmark::new(false),
             help_open: false,
+            fallback_fonts: Default::default(),
             retired_workers: Vec::new(),
         };
         assert_eq!(viewer.matching_tab(&forwarded, true), Some(0));

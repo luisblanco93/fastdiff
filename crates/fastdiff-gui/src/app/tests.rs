@@ -126,6 +126,7 @@ fn viewer() -> Fastdiff {
         server: None,
         benchmark: Benchmark::new(false),
         help_open: false,
+        fallback_fonts: Default::default(),
         retired_workers: Vec::new(),
     }
 }
@@ -1908,4 +1909,13 @@ fn chrome_stays_dark_under_a_light_system_appearance() {
 
     assert_eq!(context.theme(), egui::Theme::Dark);
     assert!(context.style().visuals.dark_mode);
+}
+
+#[test]
+fn native_title_bar_is_pinned_to_dark_with_the_theme() {
+    let context = egui::Context::default();
+    let output = context.run(egui::RawInput::default(), apply_theme);
+
+    let commands = &output.viewport_output[&egui::ViewportId::ROOT].commands;
+    assert!(commands.contains(&egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark)));
 }

@@ -1,5 +1,6 @@
 pub mod app;
 pub mod benchmark;
+pub mod fallback_fonts;
 pub mod highlight;
 pub mod presentation;
 pub mod render;
