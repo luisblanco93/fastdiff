@@ -7,6 +7,7 @@ dependency, not part of the shipped runtime).
 """
 
 from pathlib import Path
+import re
 import unittest
 
 import yaml
@@ -99,6 +100,61 @@ class WorkflowTests(unittest.TestCase):
             )
         self.assertEqual(self.jobs["release-assets"]["if"], TAG_ONLY)
 
+    def test_platform_verification_runs_concurrently(self):
+        self.assertNotIn("linux", ancestors(self.jobs, "windows"))
+        self.assertNotIn("windows", ancestors(self.jobs, "linux"))
+
+    def test_only_windows_packaging_waits_for_the_linux_helper(self):
+        self.assertEqual(set(needs(self.jobs["windows-package"])), {"linux", "windows"})
+        uses_helper = [
+            name
+            for name, job in self.jobs.items()
+            if any(
+                (step.get("with") or {}).get("name") == "wsl-helper"
+                for step in job["steps"]
+                if step.get("uses", "").startswith("actions/download-artifact")
+            )
+        ]
+        self.assertEqual(uses_helper, ["windows-package"])
+
+    def test_final_result_always_runs_and_covers_every_job(self):
+        result = self.jobs["result"]
+        self.assertEqual(result["if"], "always()")
+        self.assertEqual(set(needs(result)), set(self.jobs) - {"result"})
+        self.assertIn("scripts/ci-result.py", run_text(result))
+        self.assertIn("toJSON(needs)", str(result["steps"]))
+
+    def test_caches_are_pinned_and_never_hold_release_outputs(self):
+        caches = [
+            (name, step)
+            for name, job in self.jobs.items()
+            for step in job["steps"]
+            if step.get("uses", "").startswith("actions/cache@")
+        ]
+        self.assertTrue(caches, "expected dependency caches")
+        for name, step in caches:
+            with self.subTest(job=name, step=step.get("name")):
+                self.assertRegex(step["uses"], r"^actions/cache@[0-9a-f]{40}\b")
+                paths = step["with"]["path"].split()
+                for path in paths:
+                    self.assertFalse(path.startswith(("target/release", "dist")), path)
+                key = step["with"]["key"]
+                self.assertIn("runner.os", key)
+                self.assertIn("rust1.90.0", key)
+                self.assertIn("hashFiles(", key)
+
+    def test_release_build_is_never_restored_from_cache(self):
+        for name in ("linux", "windows"):
+            steps = self.jobs[name]["steps"]
+            build = step_index(steps, lambda s: "cargo build --release" in s.get("run", ""))
+            restored = [
+                s
+                for s in steps[:build]
+                if s.get("uses", "").startswith("actions/cache@")
+                and "release" in s["with"]["path"]
+            ]
+            self.assertEqual(restored, [])
+
     def test_metadata_guard_runs_before_toolchain_and_builds(self):
         steps = self.jobs["linux"]["steps"]
         guard = step_index(steps, lambda s: "release-guard.py" in s.get("run", ""))
@@ -114,7 +170,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("scripts/package-unix.sh", run_text(macos))
         self.assertIn("verify_tar_archive", run_text(macos))
         release = self.jobs["release-assets"]
-        self.assertEqual(set(needs(release)), {"linux", "macos", "windows"})
+        self.assertIn("macos", needs(release))
+        self.assertTrue({"linux", "macos", "windows"} <= ancestors(self.jobs, "release-assets"))
         downloaded = [
             step["with"]["name"]
             for step in release["steps"]
