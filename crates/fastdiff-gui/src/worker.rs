@@ -35,6 +35,9 @@ mod reflog_tests;
 #[cfg(test)]
 mod lifecycle_tests;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 #[cfg(all(test, unix))]
 mod recovery_tests;
 
@@ -1298,6 +1301,10 @@ mod search_tests;
 
 #[cfg(test)]
 mod tests {
+    use super::test_support::{
+        EventProgress, event_progress, reflog_progress, wait_event, wait_events_until, wait_reflog,
+        wait_status,
+    };
     use super::*;
 
     fn status_file(path: &[u8]) -> FileChange {
@@ -1407,44 +1414,6 @@ mod tests {
         );
     }
 
-    pub(super) fn wait_event(worker: &Worker, predicate: impl Fn(&Event) -> bool) -> Event {
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline {
-            for event in worker.drain_events() {
-                if predicate(&event) {
-                    return event;
-                }
-            }
-            thread::sleep(Duration::from_millis(10));
-        }
-        panic!("Worker did not deliver expected event");
-    }
-
-    fn wait_reflog(worker: &Worker, generation: u64) -> fastdiff_core::ReflogList {
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline {
-            for event in worker.drain_events() {
-                match event {
-                    Event::Reflog {
-                        generation: actual,
-                        list,
-                    } if actual == generation => {
-                        return list;
-                    }
-                    Event::ReflogError {
-                        generation: actual,
-                        message,
-                    } if actual == generation => {
-                        panic!("Commit metadata failed: {message}");
-                    }
-                    _ => {}
-                }
-            }
-            thread::sleep(Duration::from_millis(10));
-        }
-        panic!("Worker did not deliver reflog");
-    }
-
     #[test]
     fn reflog_refresh_branch_changes_alongside_file_loading() {
         let directory = tempfile::tempdir().unwrap();
@@ -1491,20 +1460,17 @@ mod tests {
                 .unwrap()
                 .success()
         );
-        let deadline = Instant::now() + Duration::from_secs(5);
-        loop {
-            let list = wait_reflog(&worker, 2);
-            if list.branch.as_deref() == Some("third") {
-                break;
+        wait_events_until(&worker, "reflog generation 2 branch third", |event| {
+            if matches!(event, Event::Reflog { generation: 2, list } if list.branch.as_deref() == Some("third"))
+            {
+                EventProgress::Complete
+            } else {
+                reflog_progress(event, 2)
             }
-            assert!(
-                Instant::now() < deadline,
-                "Reflog polling kept an old branch"
-            );
-        }
+        });
 
         worker.refresh(3, View::All);
-        let Event::Branch { branch, .. } = wait_event(&worker, |event| {
+        let Event::Branch { branch, .. } = wait_event(&worker, 3, |event| {
             matches!(event, Event::Branch { generation: 3, .. })
         }) else {
             panic!("Expected branch metadata with reflog open");
@@ -1512,7 +1478,7 @@ mod tests {
         assert_eq!(branch.as_deref(), Some("third"));
         // A second refresh avoids relying on events already drained with Branch.
         worker.refresh(4, View::All);
-        wait_event(&worker, |event| {
+        wait_event(&worker, 4, |event| {
             matches!(event, Event::Status { generation: 4, .. })
         });
         // The unchanged poll no longer republishes metadata drained with Status.
@@ -1520,7 +1486,7 @@ mod tests {
         assert_eq!(wait_reflog(&worker, 2).branch.as_deref(), Some("third"));
         worker.reflog(5, false);
         worker.refresh(6, View::All);
-        wait_event(&worker, |event| {
+        wait_event(&worker, 6, |event| {
             matches!(event, Event::Status { generation: 6, .. })
         });
         thread::sleep(Duration::from_millis(2200));
@@ -1610,13 +1576,13 @@ mod tests {
         let worker = Worker::spawn(request, egui::Context::default());
         // A request made before repository discovery completes must survive startup.
         worker.refresh(17, View::All);
-        let Event::Status { files, .. } = wait_event(&worker, |event| {
+        let Event::Status { files, .. } = wait_event(&worker, 17, |event| {
             matches!(event, Event::Status { generation: 17, .. })
         }) else {
             panic!()
         };
         worker.diff(1, View::All, files[0].clone());
-        let Event::Diff { document, .. } = wait_event(&worker, |event| {
+        let Event::Diff { document, .. } = wait_event(&worker, 1, |event| {
             matches!(event, Event::Diff { generation: 1, .. })
         }) else {
             panic!()
@@ -1624,7 +1590,7 @@ mod tests {
         assert!(document.document.comparisons[0].patch.contains("first"));
         worker.search(1, 1, "FIRST".into());
         let Event::Search { hits, .. } =
-            wait_event(&worker, |event| matches!(event, Event::Search { .. }))
+            wait_event(&worker, 1, |event| matches!(event, Event::Search { .. }))
         else {
             panic!()
         };
@@ -1635,13 +1601,13 @@ mod tests {
         )
         .unwrap();
         worker.refresh(2, View::All);
-        let Event::Status { files, .. } = wait_event(&worker, |event| {
+        let Event::Status { files, .. } = wait_event(&worker, 2, |event| {
             matches!(event, Event::Status { generation: 2, .. })
         }) else {
             panic!()
         };
         worker.diff(3, View::All, files[0].clone());
-        let Event::Diff { document, .. } = wait_event(&worker, |event| {
+        let Event::Diff { document, .. } = wait_event(&worker, 3, |event| {
             matches!(event, Event::Diff { generation: 3, .. })
         }) else {
             panic!()
@@ -1679,13 +1645,14 @@ mod tests {
         worker.document(1, "notes.txt".into(), View::Staged);
         wait_event(
             &worker,
+            1,
             |event| matches!(event, Event::Diff { generation: 1, document } if document.is_document),
         );
 
         worker.reflog(90, true);
         wait_reflog(&worker, 90);
         worker.search(1, 1, "needle".into());
-        let Event::Search { hits, .. } = wait_event(&worker, |event| {
+        let Event::Search { hits, .. } = wait_event(&worker, 1, |event| {
             matches!(event, Event::Search { generation: 1, .. })
         }) else {
             panic!("Expected document search while reflog is open");
@@ -1694,31 +1661,29 @@ mod tests {
         worker.reflog(91, false);
 
         worker.refresh(2, View::Staged);
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let mut status_received = false;
-        while Instant::now() < deadline && !status_received {
-            for event in worker.drain_events() {
-                match event {
-                    Event::Diff { generation: 2, .. }
-                    | Event::DocumentPath { generation: 2, .. } => {
-                        panic!("Git refresh restored full-file content");
-                    }
-                    Event::Status {
-                        generation: 2,
-                        files,
-                        ..
-                    } => {
-                        assert!(files.is_empty());
-                        status_received = true;
-                    }
-                    _ => {}
+        wait_events_until(
+            &worker,
+            "empty Git status generation 2",
+            |event| match event {
+                Event::Diff { generation: 2, .. } | Event::DocumentPath { generation: 2, .. } => {
+                    EventProgress::Fail("Git refresh restored full-file content".into())
                 }
-            }
-            thread::sleep(Duration::from_millis(10));
-        }
-        assert!(status_received);
+                Event::Status {
+                    generation: 2,
+                    files,
+                    ..
+                } => {
+                    if files.is_empty() {
+                        EventProgress::Complete
+                    } else {
+                        EventProgress::Fail("Git refresh returned nonempty status".into())
+                    }
+                }
+                _ => event_progress(event, 2),
+            },
+        );
         worker.search(2, 2, "needle".into());
-        let Event::Search { hits, .. } = wait_event(&worker, |event| {
+        let Event::Search { hits, .. } = wait_event(&worker, 2, |event| {
             matches!(event, Event::Search { generation: 2, .. })
         }) else {
             panic!("Expected search result");
@@ -1728,10 +1693,11 @@ mod tests {
         worker.document(3, "notes.txt".into(), View::Staged);
         wait_event(
             &worker,
+            3,
             |event| matches!(event, Event::Diff { generation: 3, document } if document.is_document),
         );
         std::fs::write(&path, "updated contents\n").unwrap();
-        let Event::Diff { document, .. } = wait_event(&worker, |event| {
+        let Event::Diff { document, .. } = wait_event(&worker, 3, |event| {
             matches!(event, Event::Diff { generation: 3, document }
                 if document.document.comparisons[0].rows[0].right == "updated contents")
         }) else {
@@ -1758,7 +1724,7 @@ mod tests {
             egui::Context::default(),
         );
         let Event::Diff { document, .. } =
-            wait_event(&worker, |event| matches!(event, Event::Diff { .. }))
+            wait_event(&worker, 0, |event| matches!(event, Event::Diff { .. }))
         else {
             panic!("Expected document");
         };
@@ -1767,7 +1733,7 @@ mod tests {
         assert_eq!(document.right_columns, 20_006);
         worker.search(0, 1, "NEEDLE".into());
         let Event::Search { hits, .. } =
-            wait_event(&worker, |event| matches!(event, Event::Search { .. }))
+            wait_event(&worker, 0, |event| matches!(event, Event::Search { .. }))
         else {
             panic!("Expected search result");
         };
@@ -1777,7 +1743,7 @@ mod tests {
         #[cfg(windows)]
         std::fs::remove_file(&path).unwrap();
         std::fs::rename(&replacement, &path).unwrap();
-        let Event::Diff { document, .. } = wait_event(&worker, |event| {
+        let Event::Diff { document, .. } = wait_event(&worker, 0, |event| {
             matches!(event, Event::Diff { document, .. }
                 if document.document.comparisons[0].rows[0].right == "replacement contents")
         }) else {
@@ -1786,7 +1752,7 @@ mod tests {
         assert_eq!(document.rows.len(), 1);
         std::fs::remove_file(&path).unwrap();
         let Event::Error { generation, .. } =
-            wait_event(&worker, |event| matches!(event, Event::Error { .. }))
+            wait_event(&worker, 0, |event| matches!(event, Event::Error { .. }))
         else {
             panic!("Expected missing-file error");
         };
@@ -1939,21 +1905,6 @@ mod tests {
         (directory, worker)
     }
 
-    pub(super) fn wait_status(
-        worker: &Worker,
-        generation: u64,
-        automatic: bool,
-    ) -> Arc<Vec<FileChange>> {
-        let Event::Status { files, .. } = wait_event(worker, |event| {
-            matches!(event, Event::Status {
-                generation: actual, automatic: actual_automatic, ..
-            } if *actual == generation && *actual_automatic == automatic)
-        }) else {
-            panic!("Expected repository status");
-        };
-        files
-    }
-
     #[test]
     fn explicit_status_refreshes_reuse_complete_snapshots() {
         let (directory, worker) = repository_worker();
@@ -1964,7 +1915,7 @@ mod tests {
             files: first,
             model: first_model,
             ..
-        } = wait_event(&worker, |event| {
+        } = wait_event(&worker, 1, |event| {
             matches!(
                 event,
                 Event::Status {
@@ -1982,7 +1933,7 @@ mod tests {
             files: equal,
             model: equal_model,
             ..
-        } = wait_event(&worker, |event| {
+        } = wait_event(&worker, 2, |event| {
             matches!(
                 event,
                 Event::Status {
@@ -2003,7 +1954,7 @@ mod tests {
             files: staged,
             model: staged_model,
             ..
-        } = wait_event(&worker, |event| {
+        } = wait_event(&worker, 3, |event| {
             matches!(
                 event,
                 Event::Status {
@@ -2149,7 +2100,7 @@ mod tests {
         worker.diff(2, View::All, files[0].clone());
         let Event::Diff {
             document: first, ..
-        } = wait_event(&worker, |event| {
+        } = wait_event(&worker, 2, |event| {
             matches!(event, Event::Diff { generation: 2, .. })
         })
         else {
@@ -2159,7 +2110,7 @@ mod tests {
         let Event::Diff {
             document: unchanged,
             ..
-        } = wait_event(&worker, |event| {
+        } = wait_event(&worker, 3, |event| {
             matches!(event, Event::Diff { generation: 3, .. })
         })
         else {
@@ -2182,7 +2133,7 @@ mod tests {
         worker.diff(5, View::All, refreshed[0].clone());
         let Event::Diff {
             document: changed, ..
-        } = wait_event(&worker, |event| {
+        } = wait_event(&worker, 5, |event| {
             matches!(event, Event::Diff { generation: 5, .. })
         })
         else {
@@ -2223,7 +2174,7 @@ mod tests {
         let files = wait_status(&worker, 1, false);
         assert!(files[0].unstaged && !files[0].staged);
         git(directory.path(), &["add", "notes.txt"]);
-        let Event::Status { files, .. } = wait_event(&worker, |event| {
+        let Event::Status { files, .. } = wait_event(&worker, 1, |event| {
             matches!(event, Event::Status { generation: 1, automatic: true, files, .. }
                 if files.len() == 1 && files[0].staged && !files[0].unstaged)
         }) else {
@@ -2234,7 +2185,7 @@ mod tests {
             directory.path(),
             &["reset", "-q", "HEAD", "--", "notes.txt"],
         );
-        wait_event(&worker, |event| {
+        wait_event(&worker, 1, |event| {
             matches!(event, Event::Status { generation: 1, automatic: true, files, .. }
                 if files.len() == 1 && files[0].unstaged && !files[0].staged)
         });
@@ -2251,20 +2202,21 @@ mod tests {
                 "changed",
             ],
         );
-        wait_event(&worker, |event| {
+        wait_event(&worker, 1, |event| {
             matches!(event, Event::Status { generation: 1, automatic: true, files, .. }
                 if files.len() == 1 && files[0].committed.is_some()
                     && !files[0].staged && !files[0].unstaged)
         });
         git(directory.path(), &["reset", "--hard", "-q", "HEAD~1"]);
         std::fs::write(directory.path().join("notes.txt"), "aaaa\n").unwrap();
-        wait_event(&worker, |event| {
+        wait_event(&worker, 1, |event| {
             matches!(event, Event::Status { generation: 1, automatic: true, files, .. }
                 if files.len() == 1 && files[0].unstaged)
         });
         git(directory.path(), &["checkout", "-qb", "moved"]);
         wait_event(
             &worker,
+            1,
             |event| matches!(event, Event::Branch { generation: 1, branch } if branch.as_deref() == Some("moved")),
         );
     }
@@ -2279,7 +2231,7 @@ mod tests {
         std::fs::write(&index, "invalid index").unwrap();
         worker.refresh(1, View::Staged);
         worker.set_foreground(true);
-        wait_event(&worker, |event| {
+        wait_event(&worker, 1, |event| {
             matches!(event, Event::Error { generation: 1, .. })
         });
         std::fs::write(&index, contents).unwrap();

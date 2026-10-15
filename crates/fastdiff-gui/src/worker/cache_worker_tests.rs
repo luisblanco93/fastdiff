@@ -1,5 +1,6 @@
 use super::{
-    tests::{git, repository_worker, wait_event, wait_status},
+    test_support::{EventProgress, event_progress, wait_event, wait_events_until, wait_status},
+    tests::{git, repository_worker},
     *,
 };
 
@@ -7,6 +8,7 @@ fn load(worker: &Worker, generation: u64, view: View, file: &FileChange) -> Arc<
     worker.diff(generation, view, file.clone());
     let Event::Diff { document, .. } = wait_event(
         worker,
+        generation,
         |event| matches!(event, Event::Diff { generation: actual, .. } if *actual == generation),
     ) else {
         panic!("Expected prepared diff");
@@ -21,10 +23,22 @@ fn file<'a>(files: &'a [FileChange], path: &[u8]) -> &'a FileChange {
 fn search(worker: &Worker, generation: u64, query: &str) -> Vec<usize> {
     let request_id = worker.shared.latest_search_id.load(Ordering::Acquire) + 1;
     worker.search(generation, request_id, query.into());
-    let Event::Search { hits, .. } = wait_event(worker, |event| {
+    let accepts = |event: &Event| {
         matches!(event, Event::Search { generation: actual, request_id: actual_id, query: actual_query, .. }
             if *actual == generation && *actual_id == request_id && actual_query == query)
-    }) else {
+    };
+    let events = wait_events_until(
+        worker,
+        format!("search generation {generation} request {request_id}"),
+        |event| {
+            if accepts(event) {
+                EventProgress::Complete
+            } else {
+                event_progress(event, generation)
+            }
+        },
+    );
+    let Event::Search { hits, .. } = events.into_iter().find(accepts).unwrap() else {
         panic!("Expected search result");
     };
     hits
@@ -301,7 +315,7 @@ fn cached_diff_does_not_hide_backend_errors() {
     std::fs::write(&index, "invalid index").unwrap();
     worker.diff(4, View::All, file(&files, b"notes.txt").clone());
     worker.set_foreground(true);
-    let Event::Error { message, .. } = wait_event(&worker, |event| {
+    let Event::Error { message, .. } = wait_event(&worker, 4, |event| {
         if matches!(event, Event::Diff { generation: 4, .. }) {
             panic!("Cache hid backend failure");
         }
@@ -314,7 +328,7 @@ fn cached_diff_does_not_hide_backend_errors() {
     std::fs::write(&index, contents).unwrap();
     worker.diff(5, View::All, file(&files, b"notes.txt").clone());
     worker.set_foreground(true);
-    let Event::Diff { document, .. } = wait_event(&worker, |event| {
+    let Event::Diff { document, .. } = wait_event(&worker, 5, |event| {
         matches!(event, Event::Diff { generation: 5, .. })
     }) else {
         panic!("Expected recovered diff");
@@ -551,25 +565,36 @@ fn load_with_provisional(
     file: &FileChange,
 ) -> (Vec<Arc<PreparedDocument>>, Arc<PreparedDocument>) {
     worker.diff(generation, view, file.clone());
-    let deadline = Instant::now() + Duration::from_secs(5);
-    let mut provisional = Vec::new();
-    while Instant::now() < deadline {
-        for event in worker.drain_events() {
-            match event {
-                Event::Provisional {
-                    generation: actual,
-                    document,
-                } if actual == generation => provisional.push(document),
-                Event::Diff {
-                    generation: actual,
-                    document,
-                } if actual == generation => return (provisional, document),
-                _ => {}
+    let events = wait_events_until(
+        worker,
+        format!("verified diff generation {generation}"),
+        |event| {
+            if matches!(event, Event::Diff { generation: actual, .. } if *actual == generation) {
+                EventProgress::Complete
+            } else {
+                event_progress(event, generation)
             }
+        },
+    );
+    let mut provisional = Vec::new();
+    let mut verified = None;
+    for event in events {
+        match event {
+            Event::Provisional {
+                generation: actual,
+                document,
+            } if actual == generation && verified.is_none() => provisional.push(document),
+            Event::Diff {
+                generation: actual,
+                document,
+            } if actual == generation && verified.is_none() => verified = Some(document),
+            _ => {}
         }
-        thread::sleep(Duration::from_millis(10));
     }
-    panic!("Worker did not deliver the verified diff");
+    (
+        provisional,
+        verified.expect("completion requires a verified diff"),
+    )
 }
 
 #[test]

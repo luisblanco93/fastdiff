@@ -1,3 +1,4 @@
+use super::test_support::wait_reflog;
 use super::*;
 use std::{path::Path, process::Command as ProcessCommand};
 
@@ -301,29 +302,6 @@ fn spawn(root: &Path) -> Worker {
         },
         egui::Context::default(),
     )
-}
-
-fn wait_reflog(worker: &Worker, generation: u64) -> ReflogList {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while Instant::now() < deadline {
-        for event in worker.drain_events() {
-            match event {
-                Event::Reflog {
-                    generation: actual,
-                    list,
-                } if actual == generation => return list,
-                Event::ReflogError {
-                    generation: actual,
-                    message,
-                } if actual == generation => {
-                    panic!("Reflog failed: {message}");
-                }
-                _ => {}
-            }
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
-    panic!("Worker did not deliver reflog generation {generation}");
 }
 
 #[test]

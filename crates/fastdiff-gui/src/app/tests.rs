@@ -1,5 +1,8 @@
 use super::*;
-use crate::{sidebar::TreeModel, worker::PreparedDocument};
+use crate::{
+    sidebar::TreeModel,
+    worker::{PreparedDocument, test_support::ProgressGuard},
+};
 use egui_kittest::{
     Harness,
     kittest::{NodeT, Queryable},
@@ -770,9 +773,16 @@ fn restarted_document_worker_replays_selected_display_mode() {
         tab.request.file = None;
         tab.request.repository.clear();
         tab.worker = Some(Worker::spawn(tab.request.clone(), tab.context.clone()));
-        let deadline = std::time::Instant::now() + WAIT_LIMIT;
+        let mut shutdown = ProgressGuard::new(
+            format!("old document worker termination, document_mode={document_mode}"),
+            WAIT_LIMIT,
+        );
         while !tab.worker.as_ref().unwrap().is_finished() {
-            assert!(std::time::Instant::now() < deadline);
+            tab.events(false);
+            if tab.error.is_some() {
+                shutdown.advance("startup error received");
+            }
+            shutdown.check(tab.worker.as_ref().unwrap().is_finished());
             std::thread::sleep(Duration::from_millis(10));
         }
         tab.request.repository = path.to_string_lossy().into_owned();
@@ -781,9 +791,35 @@ fn restarted_document_worker_replays_selected_display_mode() {
         tab.view = View::Staged;
         tab.presentation = None;
         tab.refresh();
+        let initial_files = Arc::clone(&tab.files);
+        let mut reload = ProgressGuard::new(
+            format!(
+                "document reload generation {}, document_mode={document_mode}",
+                tab.generation
+            ),
+            WAIT_LIMIT,
+        );
         while tab.loading {
-            assert!(std::time::Instant::now() < deadline);
             tab.events(false);
+            if !tab.loading {
+                break;
+            }
+            if tab.root != "/repo" {
+                reload.advance("repository discovered");
+            }
+            if tab.branch.is_some() {
+                reload.advance("branch received");
+            }
+            if !Arc::ptr_eq(&initial_files, &tab.files) {
+                reload.advance("status received");
+            }
+            if tab.provisional {
+                reload.advance("provisional document received");
+            }
+            if tab.presentation.is_some() {
+                reload.advance("presentation received");
+            }
+            reload.check(tab.worker.as_ref().unwrap().is_finished());
             std::thread::sleep(Duration::from_millis(10));
         }
         assert!(tab.error.is_none(), "{:?}", tab.error);
