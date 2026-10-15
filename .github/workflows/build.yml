@@ -177,10 +177,8 @@ jobs:
         if: always()
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Build release
-        if: ${{ !cancelled() }} # temporary (LIT-30): show every failing step in one run
         run: cargo build --release --locked --workspace
       - name: Native macOS window smoke test
-        if: ${{ !cancelled() }}
         shell: python3 {0}
         run: |
           import json
@@ -216,10 +214,8 @@ jobs:
               result = json.loads(report.read_text(encoding='utf-8'))
               assert result.get('first_diff_ms') is not None, 'Native GUI did not render a diff'
       - name: Package macOS
-        if: ${{ !cancelled() }}
         run: bash scripts/package-unix.sh
       - name: Verify macOS archive layout
-        if: ${{ !cancelled() }}
         run: |
           python3 - <<'PY'
           import importlib.util
