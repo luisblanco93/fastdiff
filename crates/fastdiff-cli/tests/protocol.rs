@@ -940,8 +940,11 @@ fn helper_reflog_queries_are_bounded_and_unchanged_snapshot_checks_run_no_git() 
     let before = fs::read_to_string(commands.path().join("commands.log")).unwrap();
     assert!(before.contains("--skip=0 --max-count=16 HEAD --"));
     send(&mut child, 3, HelperRequest::ReflogSnapshot);
+    let reply = response(&mut child).response;
     assert!(
-        matches!(response(&mut child).response, HelperResponse::ReflogSnapshot { snapshot } if snapshot == list.snapshot && snapshot.is_some())
+        matches!(&reply, HelperResponse::ReflogSnapshot { snapshot } if *snapshot == list.snapshot && snapshot.is_some()),
+        "list snapshot {:?}, snapshot reply {reply:?}",
+        list.snapshot
     );
     assert_eq!(
         fs::read_to_string(commands.path().join("commands.log")).unwrap(),

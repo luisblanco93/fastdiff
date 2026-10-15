@@ -346,3 +346,42 @@ fn deferred_build_cancelled_midway_is_discarded_for_a_retry() {
     let live = CancelToken::default();
     assert!(WatchCoverage::new_unless_cancelled(&backend, None, wake, &live).is_some());
 }
+
+// Temporary macOS diagnostic (LIT-30): prints the raw notify events for the atomic-save
+// scenario so the CI log shows what FSEvents reports. Remove once the cause is fixed.
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "diagnostic"]
+fn diag_macos_atomic_save_events() {
+    use notify::{RecursiveMode, Watcher};
+    let directory = tempfile::tempdir().unwrap();
+    let document = directory.path().join("notes.txt");
+    fs::write(&document, "before").unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let mut watcher = notify::recommended_watcher(move |event| {
+        let _ = sender.send(event);
+    })
+    .unwrap();
+    watcher
+        .watch(directory.path(), RecursiveMode::NonRecursive)
+        .unwrap();
+    let temporary = directory.path().join("save.tmp");
+    fs::write(&temporary, "after").unwrap();
+    fs::rename(temporary, &document).unwrap();
+    println!("DIAG tempdir {:?}", directory.path());
+    println!("DIAG canonical {:?}", directory.path().canonicalize());
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while let Some(left) = deadline.checked_duration_since(std::time::Instant::now()) {
+        match receiver.recv_timeout(left) {
+            Ok(Ok(event)) => println!(
+                "DIAG event {:?} paths={:?} rescan={} flag={:?}",
+                event.kind,
+                event.paths,
+                event.need_rescan(),
+                event.flag()
+            ),
+            Ok(Err(error)) => println!("DIAG error {error}"),
+            Err(_) => break,
+        }
+    }
+}

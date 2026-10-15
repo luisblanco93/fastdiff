@@ -681,7 +681,8 @@ fn diff_is_identical_with_and_without_cached_filter_overrides() {
     }
 }
 
-#[cfg(unix)]
+// APFS rejects non-UTF-8 file names (EILSEQ), so the fixture cannot be created on macOS.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn non_utf8_paths_roundtrip_without_using_patch_headers() {
     use std::os::unix::ffi::OsStringExt;

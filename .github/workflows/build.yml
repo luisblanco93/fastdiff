@@ -167,12 +167,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.90.0
         with:
           components: rustfmt, clippy
-      - name: Check and test
+      - name: Diagnose macOS environment (temporary, LIT-30)
+        continue-on-error: true
+        run: |
+          git --version
+          which -a git
+          git var GIT_CONFIG_SYSTEM || true
+          git var GIT_CONFIG_GLOBAL || true
+          git config --includes --show-origin --list || true
+          cargo test --locked -p fastdiff-gui --lib diag_macos_atomic_save_events -- --ignored --nocapture
+      - name: Check
         run: |
           cargo fmt --all -- --check
           cargo clippy --workspace --all-targets --locked -- -D warnings
-          cargo test --workspace --locked --no-fail-fast
-          python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Rust tests
+        run: cargo test --workspace --locked --no-fail-fast
+      - name: Script tests
+        if: always()
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Build release
         run: cargo build --release --locked --workspace
       - name: Native macOS window smoke test
