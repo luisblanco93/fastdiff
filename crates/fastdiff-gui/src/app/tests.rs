@@ -1828,6 +1828,14 @@ fn theme_on_a_new_tab_applies_to_existing_tabs() {
 
 #[test]
 fn reflog_colors_match_reference_only_when_theme_is_enabled() {
+    assert_eq!(
+        super::reflog::REFLOG_ID_COLOR,
+        egui::Color32::from_rgb(190, 154, 74)
+    );
+    assert_eq!(
+        super::reflog::REFLOG_BRANCH_COLOR,
+        egui::Color32::from_rgb(88, 234, 81)
+    );
     for theme in [false, true] {
         let mut tab = fixture();
         tab.reflog = Some(reflog_list(Some("test/theme"), 2));
@@ -1836,7 +1844,7 @@ fn reflog_colors_match_reference_only_when_theme_is_enabled() {
             .build_ui_state(|ui, tab| tab.show_reflog(ui, 0, theme), tab);
         harness.run();
         let expected = if theme {
-            egui::Color32::from_rgb(190, 154, 74)
+            super::reflog::REFLOG_ID_COLOR
         } else {
             harness.ctx.style().visuals.text_color()
         };
@@ -1846,7 +1854,7 @@ fn reflog_colors_match_reference_only_when_theme_is_enabled() {
             (
                 "(test/theme)",
                 if theme {
-                    egui::Color32::from_rgb(88, 234, 81)
+                    super::reflog::REFLOG_BRANCH_COLOR
                 } else {
                     harness.ctx.style().visuals.text_color()
                 },

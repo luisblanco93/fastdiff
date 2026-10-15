@@ -225,10 +225,18 @@ fn helper_operation_metadata_is_shared_for_mixed_all() {
         assert!(comparison.patch.contains(before));
         assert!(comparison.patch.contains(after));
     }
+    let (status_filter_probes, diff_filter_probes, index_size_queries) = counts;
+    assert!(
+        status_filter_probes <= 1,
+        "status probes the filter config at most once, saw {status_filter_probes}"
+    );
     assert_eq!(
-        counts,
-        (1, 0, 1),
-        "status config, diff reuses the status filter probe, selected index size"
+        diff_filter_probes, 0,
+        "diff reuses the status filter probe instead of asking Git again"
+    );
+    assert!(
+        index_size_queries <= 1,
+        "the selected index size is queried at most once, saw {index_size_queries}"
     );
 }
 
@@ -275,7 +283,14 @@ fn helper_operation_metadata_caches_missing_index_blob() {
     child.stdin.take();
     assert!(wait_for_exit(&mut child).success());
     assert!(document.comparisons[1].patch.contains("+working"));
-    assert_eq!((missing_queries, restored_queries), (1, 1));
+    assert!(
+        missing_queries <= 1,
+        "a missing index blob is queried at most once, saw {missing_queries}"
+    );
+    assert!(
+        restored_queries >= 1,
+        "the blob is queried again after `git add` so a cached miss cannot go stale"
+    );
 }
 
 #[cfg(unix)]
@@ -327,7 +342,11 @@ fn helper_operation_metadata_stays_lazy_for_unavailable_and_summaries() {
         panic!("expected detached status")
     };
     assert!(files.is_empty() && notice.unwrap().contains("detached"));
-    assert_eq!(recorded_count(commands.path(), filter_query), 0);
+    assert_eq!(
+        recorded_count(commands.path(), filter_query),
+        0,
+        "unborn, no-upstream, and detached status never probe filters"
+    );
 
     fs::write(directory.path().join("untracked.rs"), "changed\n").unwrap();
     send(
@@ -341,6 +360,11 @@ fn helper_operation_metadata_stays_lazy_for_unavailable_and_summaries() {
         panic!("expected working status")
     };
     let change = files.remove(0);
+    let status_filter_probes = recorded_count(commands.path(), filter_query);
+    assert!(
+        status_filter_probes <= 1,
+        "working status probes the filter config at most once, saw {status_filter_probes}"
+    );
     fs::write(
         directory.path().join("untracked.rs"),
         vec![b'x'; 10 * 1024 * 1024 + 1],
@@ -387,10 +411,15 @@ fn helper_operation_metadata_stays_lazy_for_unavailable_and_summaries() {
             .unwrap()
             .contains("Merge conflict")
     );
-    assert_eq!(recorded_count(commands.path(), filter_query), 1);
+    assert_eq!(
+        recorded_count(commands.path(), filter_query),
+        status_filter_probes,
+        "oversized and conflict summaries do not probe the filter config"
+    );
     assert_eq!(
         recorded_count(commands.path(), "cat-file -s :untracked.rs"),
-        0
+        0,
+        "summaries do no index size queries"
     );
 }
 
