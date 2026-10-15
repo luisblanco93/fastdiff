@@ -27,9 +27,9 @@ class AppPackageTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory(prefix="fastdiff app package ") as directory:
             base = Path(directory)
-            script = base / "scripts/package-linux.sh"
+            script = base / "scripts/package-unix.sh"
             script.parent.mkdir()
-            script.write_bytes((ROOT / "scripts/package-linux.sh").read_bytes())
+            script.write_bytes((ROOT / "scripts/package-unix.sh").read_bytes())
             license_path = base / "crates/fastdiff-gui/assets/material/LICENSE"
             license_path.parent.mkdir(parents=True)
             license_path.write_bytes(license_content)

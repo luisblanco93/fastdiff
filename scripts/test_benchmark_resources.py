@@ -3,6 +3,7 @@
 import io
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
@@ -58,7 +59,7 @@ class ProcParsingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_stat("12 (short) S 1 2", TICKS, PAGE)
 
-    @unittest.skipIf(os.name == "nt", "Linux /proc layout")
+    @unittest.skipUnless(sys.platform == "linux", "Linux /proc layout")
     def test_fake_proc_tree_selects_descendants_and_skips_vanished_entries(self) -> None:
         ticks, page = os.sysconf("SC_CLK_TCK"), os.sysconf("SC_PAGE_SIZE")
         with tempfile.TemporaryDirectory() as directory:
@@ -323,7 +324,7 @@ class ProbeAndSourceTests(unittest.TestCase):
                  + b"\n==> /proc/50/cmdline <==\nx\0\n")
         self.assertIsNone(parse_wsl_table(table, TICKS, PAGE)[0].age_seconds)
 
-    @unittest.skipIf(os.name == "nt", "Linux /proc layout")
+    @unittest.skipUnless(sys.platform == "linux", "Linux /proc layout")
     def test_local_table_reader_reads_uptime_from_the_proc_root(self) -> None:
         ticks, page = os.sysconf("SC_CLK_TCK"), os.sysconf("SC_PAGE_SIZE")
         with tempfile.TemporaryDirectory() as directory:

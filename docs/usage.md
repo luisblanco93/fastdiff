@@ -26,6 +26,8 @@ Drag to select multiple source lines in either pane. Selection stays in the pane
 
 Collapsed context can be expanded to inspect nearby unchanged lines. The diff panes fit the available window width and share one aligned vertical scroll position. Each pane scrolls long source lines horizontally with fixed line numbers. In Git Diff, a line longer than 4,096 bytes shows a preview ending in “… [long line; copy source for full text]”; Copy source returns the full line. Full file mode scrolls through complete lines. Below 640 logical pixels of diff width, side-by-side temporarily becomes unified; at 680 pixels or wider it returns to side-by-side. The explicit unified preference remains active until toggled off.
 
+On macOS, every <kbd>Ctrl</kbd> shortcut below uses <kbd>Cmd</kbd> instead; Help shows the labels for your platform.
+
 | Shortcut | Action |
 |---|---|
 | Ctrl+F | Focus diff search |

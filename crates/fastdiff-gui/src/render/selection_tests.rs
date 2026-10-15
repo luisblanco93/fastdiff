@@ -210,7 +210,7 @@ fn arrows_leave_modified_keys_alone() {
     harness.state_mut().selection.active = Some((0, Pane::Old));
     for modifiers in [
         egui::Modifiers::ALT,
-        egui::Modifiers::CTRL,
+        egui::Modifiers::COMMAND,
         egui::Modifiers::SHIFT,
     ] {
         arrow(&mut harness, egui::Key::ArrowDown, modifiers);
@@ -274,7 +274,7 @@ fn dragging_across_divider_copies_only_starting_pane_and_survives_scroll() {
     harness.event(egui::Event::Key {
         key: egui::Key::C,
         pressed: true,
-        modifiers: egui::Modifiers::CTRL,
+        modifiers: egui::Modifiers::COMMAND,
         repeat: false,
         physical_key: None,
     });

@@ -64,6 +64,8 @@ fn launcher_rejects_non_repository_current_directory_before_opening_gui() {
     }
 }
 
+// The WSL launcher path exists only on Linux.
+#[cfg(target_os = "linux")]
 #[test]
 fn wsl_launcher_passes_absolute_linux_paths_and_selection_to_windows_gui() {
     let (directory, gui, record) = fixture();
@@ -89,6 +91,8 @@ fn wsl_launcher_passes_absolute_linux_paths_and_selection_to_windows_gui() {
     assert!(!wsl.user.is_empty());
 }
 
+// The WSL launcher path exists only on Linux.
+#[cfg(target_os = "linux")]
 #[test]
 fn wsl_launcher_finds_windows_gui_in_path_and_converts_configured_windows_path() {
     let (directory, gui, record) = fixture();
@@ -124,6 +128,8 @@ fn wsl_launcher_finds_windows_gui_in_path_and_converts_configured_windows_path()
     );
 }
 
+// The WSL launcher path exists only on Linux.
+#[cfg(target_os = "linux")]
 #[test]
 fn launch_failure_reports_missing_program_or_unaccepted_gui() {
     let (directory, gui, record) = fixture();
@@ -335,6 +341,8 @@ fn launch_trace_failures_and_disabled_tracing_preserve_launch() {
     }
 }
 
+// The WSL launcher path exists only on Linux.
+#[cfg(target_os = "linux")]
 #[test]
 fn wsl_launch_propagates_profiling_and_isolation_environment() {
     let (directory, gui, record) = fixture();

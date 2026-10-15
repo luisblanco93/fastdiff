@@ -17,6 +17,7 @@ import tarfile
 import tempfile
 import uuid
 import zipfile
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
@@ -24,6 +25,8 @@ REPOSITORY = "luisblanco93/fastdiff"
 # Releases before the fastdiff rename installed under this name; setup removes them.
 LEGACY_NAME = "diffcode"
 LEGACY_PLATFORMS = ("linux", "wsl", "windows")
+# Release package targets and their architecture suffix: fastdiff-<version>-<target>-<arch>.
+PACKAGE_ARCHITECTURES = {"linux": "x64", "windows": "x64", "macos": "arm64"}
 LEGACY_DIRECTORIES = {
     "versions": re.compile(r"\d+\.\d+\.\d+(?:-[\w.-]+)?-(?:linux|windows)-[0-9a-f]{32}"),
     "runtimes": re.compile(r"\d+\.\d+\.\d+(?:-[\w.-]+)?-[0-9a-f]{32}"),
@@ -134,10 +137,27 @@ def update(host: str, root: Path) -> None:
                         "--root", str(root)], check=True)
 
 
+def package_platform(target: str) -> str:
+    """Return the release platform name, such as linux-x64 or macos-arm64."""
+    return f"{target}-{PACKAGE_ARCHITECTURES[target]}"
+
+
+def host_target(host: str) -> str:
+    """Return the package target a host runs: WSL runs the Linux package."""
+    return "linux" if host == "wsl" else host
+
+
 def host_platform() -> str:
-    if platform.machine().lower() not in {"x86_64", "amd64"}:
-        raise ValueError("fastdiff currently supports x64 Linux, Windows, and WSL2")
+    unsupported = "fastdiff currently supports x64 Linux, Windows, and WSL2, and Apple Silicon macOS"
+    machine = platform.machine().lower()
     system = platform.system()
+    if system == "Darwin":
+        # macOS reports arm64, while Linux on the same hardware reports aarch64.
+        if machine != "arm64":
+            raise ValueError(unsupported)
+        return "macos"
+    if machine not in {"x86_64", "amd64"}:
+        raise ValueError(unsupported)
     if system == "Windows":
         return "windows"
     if system == "Linux":
@@ -146,7 +166,7 @@ def host_platform() -> str:
                 raise ValueError("fastdiff requires WSL2; WSL1 is not supported")
             return "wsl"
         return "linux"
-    raise ValueError("fastdiff currently supports x64 Linux, Windows, and WSL2")
+    raise ValueError(unsupported)
 
 
 def data_root(host: str) -> Path:
@@ -183,8 +203,8 @@ def wsl_windows_root() -> Path:
 
 
 def archive_name(version: str, target: str) -> str:
-    extension = "tar.gz" if target == "linux" else "zip"
-    return f"fastdiff-{version}-{target}-x64.{extension}"
+    extension = "zip" if target == "windows" else "tar.gz"
+    return f"fastdiff-{version}-{package_platform(target)}.{extension}"
 
 
 def download_assets(version: str, names: list[str], stage: Path) -> None:
@@ -194,7 +214,12 @@ def download_assets(version: str, names: list[str], stage: Path) -> None:
         if Path(name).name != name or not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
             raise ValueError(f"Invalid release asset name: {name}")
     for name in ["SHA256SUMS", *names]:
-        download_file(f"{base}/{name}", stage / name)
+        try:
+            download_file(f"{base}/{name}", stage / name)
+        except HTTPError as error:
+            if error.code != 404:
+                raise
+            raise ValueError(f"Release v{version} does not include {name}; this platform needs a later release") from error
 
 
 def verify_checksums(stage: Path, names: list[str]) -> None:
@@ -270,13 +295,13 @@ def extract_archive(archive: Path, destination: Path, package: str) -> Path:
 
 def validate_package(package: Path, version: str, target: str) -> dict:
     metadata = read_json(package / "build-info.json")
-    if metadata.get("version") != version or metadata.get("platform") != f"{target}-x64":
+    if metadata.get("version") != version or metadata.get("platform") != package_platform(target):
         raise ValueError(f"Release version or platform mismatch in {package}")
     revision = metadata.get("revision")
     if not isinstance(revision, str) or not revision or revision == "unversioned":
         raise ValueError("The release has no source revision for pairing")
-    binaries = ["bin/fastdiff", "bin/fastdiff-gui"] if target == "linux" else [
-        "bin/fastdiff.exe", "bin/fastdiff-gui.exe", "wsl/fastdiff"]
+    binaries = ["bin/fastdiff.exe", "bin/fastdiff-gui.exe", "wsl/fastdiff"] if target == "windows" else [
+        "bin/fastdiff", "bin/fastdiff-gui"]
     for relative in binaries:
         path = package / relative
         if not path.is_file() or path.is_symlink():
@@ -293,7 +318,7 @@ def load_install(root: Path, version: str, host: str) -> dict:
     for path in paths.values():
         if not path.is_absolute() or not path.is_file():
             raise ValueError(f"Installed executable is unavailable: {path}")
-    target = "windows" if host == "windows" else "linux"
+    target = host_target(host)
     extension = ".exe" if target == "windows" else ""
     package = paths["launcher"].parent.parent
     if paths["launcher"] != package / "bin" / f"fastdiff{extension}" or paths["gui"] != package / "bin" / f"fastdiff-gui{extension}":
@@ -311,19 +336,19 @@ def load_install(root: Path, version: str, host: str) -> dict:
 
 def install_package(archive: Path, root: Path, version: str, target: str) -> Path:
     root.mkdir(parents=True, exist_ok=True)
-    package_name = f"fastdiff-{version}-{target}-x64"
+    package_name = f"fastdiff-{version}-{package_platform(target)}"
     # Each attempt has a fresh destination so an interrupted setup cannot damage the old app.
     with tempfile.TemporaryDirectory(prefix=".stage-", dir=root) as temporary:
         package = extract_archive(archive, Path(temporary), package_name)
         metadata = package / "build-info.json"
         if not metadata.exists():
-            helper = package / ("bin/fastdiff" if target == "linux" else "wsl/fastdiff")
+            helper = package / ("wsl/fastdiff" if target == "windows" else "bin/fastdiff")
             metadata.write_text(json.dumps({
-                "version": version, "platform": f"{target}-x64",
+                "version": version, "platform": package_platform(target),
                 "revision": "sha256:" + hashlib.sha256(helper.read_bytes()).hexdigest(),
             }) + "\n", encoding="utf-8")
         validate_package(package, version, target)
-        if target == "linux":
+        if target != "windows":
             for binary in ("fastdiff", "fastdiff-gui"):
                 (package / "bin" / binary).chmod(0o755)
         destination = root / "versions" / f"{version}-{target}-{uuid.uuid4().hex}"
@@ -365,6 +390,17 @@ def check_command_owner(path: Path, root: Path, host: str, *, replace_legacy: bo
         raise ValueError(f"Refusing to overwrite user-owned command {path}; move it before rerunning the installer.")
 
 
+def interpreter_path() -> str:
+    """Absolute interpreter path recorded in the command.
+
+    Homebrew's versioned Cellar directory is deleted by `brew upgrade`, while the
+    `opt` symlink survives it, so macOS keeps the symlink instead of resolving it.
+    """
+    if platform.system() == "Darwin":
+        return os.path.abspath(sys.executable)
+    return str(Path(sys.executable).resolve())
+
+
 def stage_command(root: Path, version: str, host: str) -> tuple[dict, Path]:
     directory = root / "runtimes" / f"{version}-{uuid.uuid4().hex}"
     scripts = directory / "scripts"
@@ -372,7 +408,7 @@ def stage_command(root: Path, version: str, host: str) -> tuple[dict, Path]:
     (directory / "runtime.json").write_text(json.dumps({"version": version}), encoding="utf-8")
     for name in ("runtime.py", "command.py", "lifecycle.py"):
         shutil.copyfile(Path(__file__).with_name(name), scripts / name)
-    python = str(Path(sys.executable).resolve())
+    python = interpreter_path()
     command = str(scripts / "command.py")
     marker = command_marker(root, host)
     if host == "windows":
@@ -645,7 +681,7 @@ def setup(version: str, host: str, root: Path) -> None:
         print(f"fastdiff {version} is already installed")
         return
     targets = ["linux", "windows"] if host == "wsl" else [host]
-    roots = {"linux": root, "windows": wsl_windows_root() if host == "wsl" else root}
+    roots = {"linux": root, "macos": root, "windows": wsl_windows_root() if host == "wsl" else root}
     names = [archive_name(version, target) for target in targets]
     root.mkdir(parents=True, exist_ok=True)
     installed = []

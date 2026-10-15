@@ -15,6 +15,7 @@ import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 MODULE = Path(__file__).resolve().parents[1] / "scripts/runtime/runtime.py"
@@ -25,13 +26,14 @@ VERSION = "0.1.1"
 
 
 def make_package(parent: Path, target: str, revision: str = "abc123", version: str = VERSION) -> Path:
-    package = parent / f"fastdiff-{version}-{target}-x64"
+    platform_name = runtime.package_platform(target)
+    package = parent / f"fastdiff-{version}-{platform_name}"
     package.mkdir(parents=True)
     (package / "build-info.json").write_text(json.dumps({
-        "version": version, "platform": f"{target}-x64", "revision": revision,
+        "version": version, "platform": platform_name, "revision": revision,
     }))
-    names = ["bin/fastdiff", "bin/fastdiff-gui"] if target == "linux" else [
-        "bin/fastdiff.exe", "bin/fastdiff-gui.exe", "wsl/fastdiff"]
+    names = ["bin/fastdiff.exe", "bin/fastdiff-gui.exe", "wsl/fastdiff"] if target == "windows" else [
+        "bin/fastdiff", "bin/fastdiff-gui"]
     for name in names:
         path = package / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +73,7 @@ def snapshot(directory: Path) -> dict[str, bytes | None]:
 def fake_download(version: str, names: list[str], stage: Path, windows_revision: str = "abc123", binary_only: bool = True) -> None:
     checksums = []
     for name in names:
-        target = "linux" if name.endswith("tar.gz") else "windows"
+        target = "windows" if name.endswith("zip") else "macos" if "-macos-" in name else "linux"
         package = make_package(stage / "input" / target, target,
                                windows_revision if target == "windows" else "abc123", version)
         if binary_only:
@@ -79,7 +81,7 @@ def fake_download(version: str, names: list[str], stage: Path, windows_revision:
             if target == "windows" and windows_revision != "abc123":
                 (package / "wsl/fastdiff").write_bytes(windows_revision.encode())
         archive = stage / name
-        if target == "linux":
+        if target != "windows":
             with tarfile.open(archive, "w:gz") as writer:
                 writer.add(package, arcname=package.name)
         else:
@@ -95,7 +97,8 @@ class PluginRuntimeTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory(prefix="fastdiff test ")
         self.addCleanup(temporary.cleanup)
-        self.parent = Path(temporary.name)
+        # macOS temp dirs sit behind the /var -> /private/var symlink, which the installer refuses.
+        self.parent = Path(temporary.name).resolve()
         self.root = self.parent / "linux data" / "fastdiff"
         location = patch.object(runtime, "command_path", return_value=self.parent / "bin" / "dff")
         location.start()
@@ -127,13 +130,65 @@ class PluginRuntimeTests(unittest.TestCase):
                     patch.object(runtime.platform, "system", return_value=system), \
                     patch.object(runtime.platform, "release", return_value=release):
                 self.assertEqual(runtime.host_platform(), expected)
-        with patch.object(runtime.platform, "machine", return_value="aarch64"):
-            with self.assertRaisesRegex(ValueError, "x64"):
-                runtime.host_platform()
-        with patch.object(runtime.platform, "machine", return_value="x86_64"), \
-                patch.object(runtime.platform, "system", return_value="Darwin"):
-            with self.assertRaises(ValueError):
-                runtime.host_platform()
+        # macOS reports arm64 where Linux reports aarch64 for the same hardware.
+        with patch.dict(os.environ, {}, clear=True), \
+                patch.object(runtime.platform, "machine", return_value="arm64"), \
+                patch.object(runtime.platform, "system", return_value="Darwin"), \
+                patch.object(runtime.platform, "release", return_value="24.1.0"):
+            self.assertEqual(runtime.host_platform(), "macos")
+        for machine, system in [("aarch64", "Linux"), ("arm64", "Linux"), ("x86_64", "Darwin"), ("AMD64", "Darwin"),
+                                ("arm64", "Windows")]:
+            with self.subTest(machine=machine, system=system), \
+                    patch.object(runtime.platform, "machine", return_value=machine), \
+                    patch.object(runtime.platform, "system", return_value=system):
+                with self.assertRaisesRegex(ValueError, "supports"):
+                    runtime.host_platform()
+
+    def test_package_names_carry_the_architecture_of_each_platform(self) -> None:
+        self.assertEqual(runtime.archive_name(VERSION, "linux"), f"fastdiff-{VERSION}-linux-x64.tar.gz")
+        self.assertEqual(runtime.archive_name(VERSION, "windows"), f"fastdiff-{VERSION}-windows-x64.zip")
+        self.assertEqual(runtime.archive_name(VERSION, "macos"), f"fastdiff-{VERSION}-macos-arm64.tar.gz")
+        self.assertEqual(runtime.host_target("wsl"), "linux")
+        self.assertEqual(runtime.host_target("macos"), "macos")
+
+    def test_interpreter_path_keeps_the_macos_symlink_and_resolves_elsewhere(self) -> None:
+        link = self.parent / "opt" / "python3"
+        link.parent.mkdir()
+        link.symlink_to(Path(runtime.sys.executable).resolve())
+        with patch.object(runtime.sys, "executable", str(link)):
+            with patch.object(runtime.platform, "system", return_value="Darwin"):
+                self.assertEqual(runtime.interpreter_path(), str(link))
+            with patch.object(runtime.platform, "system", return_value="Linux"):
+                self.assertEqual(runtime.interpreter_path(), str(link.resolve()))
+
+    def test_missing_release_asset_is_reported_clearly(self) -> None:
+        def download(url, destination):
+            if url.endswith(".tar.gz"):
+                raise HTTPError(url, 404, "Not Found", {}, None)
+        with patch.object(runtime, "download_file", side_effect=download):
+            with self.assertRaisesRegex(ValueError, "does not include .*macos-arm64"):
+                runtime.download_assets(VERSION, [runtime.archive_name(VERSION, "macos")], self.parent)
+
+    def test_macos_setup_installs_the_arm64_archive_and_launches_it(self) -> None:
+        requested = []
+
+        def download(version, names, stage):
+            requested.extend(names)
+            fake_download(version, names, stage)
+        with patch.object(runtime, "download_assets", side_effect=download):
+            runtime.setup(VERSION, "macos", self.root)
+        self.assertEqual(requested, [f"fastdiff-{VERSION}-macos-arm64.tar.gz"])
+        receipt = runtime.load_install(self.root, VERSION, "macos")
+        self.assertEqual(receipt["platform"], "macos")
+        launcher = Path(receipt["launcher"])
+        self.assertEqual(launcher.name, "fastdiff")
+        if os.name != "nt":
+            self.assertEqual(launcher.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(runtime.read_json(launcher.parent.parent / "build-info.json")["platform"], "macos-arm64")
+        # A package built for another platform must never validate as the macOS app.
+        linux = make_package(self.parent / "other", "linux")
+        with self.assertRaisesRegex(ValueError, "version or platform mismatch"):
+            runtime.validate_package(linux, VERSION, "macos")
 
     def test_entry_point_traces_imports(self) -> None:
         fields, pending = runtime.stage_command(self.root, VERSION, "linux")

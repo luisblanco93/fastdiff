@@ -1,6 +1,18 @@
 use super::{Fastdiff, ReviewTab, RowKind, View};
 use egui::{Event, Key, Modifiers};
 
+/// Primary shortcut modifier: Ctrl on Linux and Windows, Cmd on macOS.
+const PRIMARY: Modifiers = Modifiers::COMMAND;
+
+/// Rewrites a `Ctrl+...` binding label for the current platform.
+pub(super) fn binding_label(binding: &str) -> String {
+    if cfg!(target_os = "macos") {
+        binding.replace("Ctrl", "Cmd")
+    } else {
+        binding.to_owned()
+    }
+}
+
 const SHORTCUTS: &[(&str, &str)] = &[
     ("Ctrl+F", "Search document / diff"),
     ("Ctrl+Alt+F", "Filter filenames"),
@@ -67,7 +79,7 @@ fn consume(context: &egui::Context, modifiers: Modifiers, key: Key) -> bool {
 
 impl Fastdiff {
     pub(super) fn shortcuts(&mut self, context: &egui::Context) {
-        let ctrl = Modifiers::CTRL;
+        let ctrl = PRIMARY;
         let ctrl_alt = ctrl | Modifiers::ALT;
         let ctrl_shift = ctrl | Modifiers::SHIFT;
         if consume(context, Modifiers::NONE, Key::F1) {
@@ -214,7 +226,7 @@ impl Fastdiff {
                             .striped(true)
                             .show(ui, |ui| {
                                 for (binding, action) in SHORTCUTS {
-                                    ui.monospace(*binding);
+                                    ui.monospace(binding_label(binding));
                                     ui.label(*action);
                                     ui.end_row();
                                 }

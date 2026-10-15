@@ -15,7 +15,7 @@ Gh = Callable[[Sequence[str]], str]
 
 HELPER_NAME = "fastdiff"
 VALIDATION_NOTE = (
-    "Automated checks: the CI run above (Linux and Windows tests, release builds, "
+    "Automated checks: the CI run above (Linux, macOS, and Windows tests, release builds, "
     "native window smoke checks, packaging). Not covered by CI: launching this paired "
     "build from Windows into WSL; manual smoke results are recorded in docs/validation.md."
 )
@@ -43,42 +43,51 @@ def check_member_names(names: list[str], root: str) -> None:
         seen.add(key)
 
 
+LICENSE_NAME = "licenses/material-icons-LICENSE"
+
+
+def verify_tar_archive(path: Path, root: str, label: str) -> str:
+    """Check a Unix archive's names and contents; return the SHA-256 of its helper."""
+    with tarfile.open(path) as archive:
+        members = archive.getmembers()
+        check_member_names([m.name for m in members], root)
+        for member in members:
+            if not (member.isfile() or member.isdir()):
+                raise ValueError(f"{label} archive member {member.name!r} is not a file or directory")
+        files = {m.name for m in members if m.isfile()}
+        expected = {f"{root}/bin/fastdiff", f"{root}/bin/fastdiff-gui", f"{root}/{LICENSE_NAME}"}
+        if files != expected:
+            raise ValueError(f"Unexpected {label} archive contents: {sorted(files ^ expected)}")
+        return sha256(archive.extractfile(f"{root}/bin/{HELPER_NAME}"))
+
+
 def verify_assets(directory: Path, version: str) -> dict[str, Path]:
-    """Check the three release assets and their paired helper; return name -> path."""
+    """Check the four release assets and the paired WSL helper; return name -> path."""
     linux = f"fastdiff-{version}-linux-x64.tar.gz"
+    macos = f"fastdiff-{version}-macos-arm64.tar.gz"
     windows = f"fastdiff-{version}-windows-x64.zip"
     sums = "SHA256SUMS"
     present = {path.name for path in directory.iterdir()} if directory.is_dir() else set()
-    if present != {linux, windows, sums}:
+    if present != {linux, macos, windows, sums}:
         raise ValueError(
-            f"Release assets must be exactly {sorted((linux, windows, sums))}; found {sorted(present)}"
+            f"Release assets must be exactly {sorted((linux, macos, windows, sums))}; found {sorted(present)}"
         )
-    assets = {name: directory / name for name in (linux, windows, sums)}
+    assets = {name: directory / name for name in (linux, macos, windows, sums)}
     recorded = {}
     for line in assets[sums].read_text(encoding="utf-8").splitlines():
         match = re.fullmatch(r"([0-9a-f]{64})  (\S+)", line)
         if not match or match[2] in recorded:
             raise ValueError(f"Malformed SHA256SUMS line: {line!r}")
         recorded[match[2]] = match[1]
-    if set(recorded) != {linux, windows}:
-        raise ValueError("SHA256SUMS must list exactly the Linux and Windows archives")
+    if set(recorded) != {linux, macos, windows}:
+        raise ValueError("SHA256SUMS must list exactly the Linux, macOS, and Windows archives")
     for name, digest in recorded.items():
         if file_sha256(assets[name]) != digest:
             raise ValueError(f"Checksum mismatch for {name}")
     linux_root, windows_root = linux.removesuffix(".tar.gz"), windows.removesuffix(".zip")
-    license_name = "licenses/material-icons-LICENSE"
-    with tarfile.open(assets[linux]) as archive:
-        members = archive.getmembers()
-        check_member_names([m.name for m in members], linux_root)
-        for member in members:
-            if not (member.isfile() or member.isdir()):
-                raise ValueError(f"Linux archive member {member.name!r} is not a file or directory")
-        files = {m.name for m in members if m.isfile()}
-        expected = {f"{linux_root}/bin/fastdiff", f"{linux_root}/bin/fastdiff-gui",
-                    f"{linux_root}/{license_name}"}
-        if files != expected:
-            raise ValueError(f"Unexpected Linux archive contents: {sorted(files ^ expected)}")
-        linux_helper = sha256(archive.extractfile(f"{linux_root}/bin/{HELPER_NAME}"))
+    linux_helper = verify_tar_archive(assets[linux], linux_root, "Linux")
+    # The macOS helper is a Mach-O binary, so it is checked for layout only, not paired.
+    verify_tar_archive(assets[macos], macos.removesuffix(".tar.gz"), "macOS")
     with zipfile.ZipFile(assets[windows]) as archive:
         entries = archive.infolist()
         check_member_names([e.filename for e in entries], windows_root)
@@ -87,7 +96,7 @@ def verify_assets(directory: Path, version: str) -> dict[str, Path]:
                 raise ValueError(f"Windows archive entry {entry.filename!r} is a symbolic link")
         files = {e.filename for e in entries if not e.filename.endswith("/")}
         expected = {f"{windows_root}/bin/fastdiff.exe", f"{windows_root}/bin/fastdiff-gui.exe",
-                    f"{windows_root}/wsl/fastdiff", f"{windows_root}/{license_name}"}
+                    f"{windows_root}/wsl/fastdiff", f"{windows_root}/{LICENSE_NAME}"}
         if files != expected:
             raise ValueError(f"Unexpected Windows archive contents: {sorted(files ^ expected)}")
         with archive.open(f"{windows_root}/wsl/{HELPER_NAME}") as stream:

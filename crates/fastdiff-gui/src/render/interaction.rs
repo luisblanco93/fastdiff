@@ -228,12 +228,12 @@ pub(super) fn shortcuts(ui: &egui::Ui, document: &PreparedDocument, selection: &
     if ui.ctx().wants_keyboard_input() {
         return;
     }
-    let select_all = ui.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::A));
+    let select_all = ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::A));
     if select_all && let Some((comparison, pane)) = selection.active {
         selection.select_all(document, comparison, pane);
     }
     let copy = ui.input_mut(|i| {
-        let copy_key = i.consume_key(egui::Modifiers::CTRL, egui::Key::C);
+        let copy_key = i.consume_key(egui::Modifiers::COMMAND, egui::Key::C);
         let copy_event = i
             .events
             .iter()

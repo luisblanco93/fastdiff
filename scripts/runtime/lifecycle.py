@@ -25,7 +25,7 @@ def check_tree(directory: Path) -> None:
 
 
 def managed_directories(root: Path, host: str) -> list[Path]:
-    target = "windows" if host == "windows" else "linux"
+    target = runtime.host_target(host)
     directories = []
     for group in ("versions", "runtimes"):
         parent = root / group
@@ -72,7 +72,7 @@ def state_directories(root: Path, host: str) -> list[Path]:
 
 
 def uninstall(host: str, root: Path) -> None:
-    if host not in {"linux", "windows", "wsl"} or not root.is_absolute():
+    if host not in {"linux", "macos", "windows", "wsl"} or not root.is_absolute():
         raise ValueError("Uninstall requires the current environment's absolute installation root")
     check_ancestors(root)
     receipt_path = root / "receipt.json"

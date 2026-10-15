@@ -75,6 +75,24 @@ fn notification(coverage: &mut WatchCoverage, receiver: &mpsc::Receiver<()>) -> 
     .unwrap_or_else(|failure| panic!("{failure}"))
 }
 
+/// FSEvents replays a `Create(Folder)` for a directory made just before the stream started,
+/// which would count as a layout change of the document's parent. Consume it (when it comes)
+/// so the test observes only the save. Other platforms report nothing here.
+fn discard_replayed_creation(coverage: &mut WatchCoverage, receiver: &mpsc::Receiver<()>) {
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let _ = poll_until(
+        "replayed directory creation",
+        Duration::from_secs(1),
+        |_| {
+            let _ = receiver.recv_timeout(Duration::from_millis(50));
+            coverage.take_received().then_some(())
+        },
+    );
+    coverage.take_pending(&CancelToken::default());
+}
+
 #[test]
 fn ignored_batches_skip_refresh_but_tracked_mixed_and_documents_do_not() {
     let (directory, backend) = repository();
@@ -203,6 +221,7 @@ fn document_atomic_replacement_is_seen_without_periodic_polling() {
         root: directory.path().to_str().unwrap().into(),
     };
     let (mut coverage, receiver) = coverage(&backend, document.to_str());
+    discard_replayed_creation(&mut coverage, &receiver);
     let temporary = directory.path().join("save.tmp");
     fs::write(&temporary, "after").unwrap();
     fs::rename(temporary, &document).unwrap();

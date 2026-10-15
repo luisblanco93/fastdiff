@@ -24,7 +24,8 @@ mod snapshot_tests;
 #[cfg(test)]
 mod ipc_tests;
 
-#[cfg(test)]
+// Reads /proc/self/stat, which only Linux provides.
+#[cfg(all(test, target_os = "linux"))]
 mod refresh_measurement;
 
 #[cfg(test)]
@@ -740,7 +741,7 @@ impl Fastdiff {
                 if tab.loading {
                     ui.spinner();
                 }
-                let hints = "Alt+Up/Down files · Ctrl+F search · F1 help";
+                let hints = shortcuts::binding_label("Alt+Up/Down files · Ctrl+F search · F1 help");
                 let hint_width = if ui.available_width() >= 900.0 {
                     ui.painter()
                         .layout_no_wrap(
@@ -1118,7 +1119,9 @@ impl Fastdiff {
                     !tab.document_mode,
                     egui::Button::new(if *unified { "Side by side" } else { "Unified" }),
                 )
-                .on_hover_text("Switch diff layout (Ctrl+Shift+U)")
+                .on_hover_text(shortcuts::binding_label(
+                    "Switch diff layout (Ctrl+Shift+U)",
+                ))
                 .clicked()
             {
                 *unified = !*unified;

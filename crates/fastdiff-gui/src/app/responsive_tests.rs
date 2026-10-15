@@ -147,7 +147,10 @@ fn filtering_reveals_matching_file_and_restores_collapsed_folder() {
             .query_by_role_and_label(Role::Button, "src/main.rs")
             .is_none()
     );
-    harness.key_press_modifiers(egui::Modifiers::CTRL | egui::Modifiers::ALT, egui::Key::F);
+    harness.key_press_modifiers(
+        egui::Modifiers::COMMAND | egui::Modifiers::ALT,
+        egui::Key::F,
+    );
     harness.run();
     harness.event(egui::Event::Text("main".into()));
     harness.run();

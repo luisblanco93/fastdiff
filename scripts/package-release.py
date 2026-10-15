@@ -40,6 +40,7 @@ def package(root: Path, output: Path, tag: str | None = None) -> Path:
     version = release_version(root, tag)
     assets = [
         output / f"fastdiff-{version}-linux-x64.tar.gz",
+        output / f"fastdiff-{version}-macos-arm64.tar.gz",
         output / f"fastdiff-{version}-windows-x64.zip",
     ]
     for asset in assets:

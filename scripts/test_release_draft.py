@@ -17,22 +17,29 @@ spec.loader.exec_module(draft)
 
 VERSION = "1.0.0"
 LINUX = f"fastdiff-{VERSION}-linux-x64"
+MACOS = f"fastdiff-{VERSION}-macos-arm64"
 WINDOWS = f"fastdiff-{VERSION}-windows-x64"
 REPO = "owner/fastdiff"
 TAG = f"v{VERSION}"
 
 
-def write_assets(directory: Path, helper=b"helper", windows_helper=None, extra_linux=()):
-    """Create a valid asset set; options corrupt one aspect of it."""
-    with tarfile.open(directory / f"{LINUX}.tar.gz", "w:gz") as archive:
-        members = {f"{LINUX}/bin/fastdiff": helper, f"{LINUX}/bin/fastdiff-gui": b"gui",
-                   f"{LINUX}/licenses/material-icons-LICENSE": b"license"}
-        for name in extra_linux:
+def write_tar(path: Path, root: str, helper: bytes, extra=()):
+    with tarfile.open(path, "w:gz") as archive:
+        members = {f"{root}/bin/fastdiff": helper, f"{root}/bin/fastdiff-gui": b"gui",
+                   f"{root}/licenses/material-icons-LICENSE": b"license"}
+        for name in extra:
             members[name] = b"unexpected"
         for name, data in members.items():
             info = tarfile.TarInfo(name)
             info.size = len(data)
             archive.addfile(info, io.BytesIO(data))
+
+
+def write_assets(directory: Path, helper=b"helper", windows_helper=None, extra_linux=(), extra_macos=()):
+    """Create a valid asset set; options corrupt one aspect of it."""
+    write_tar(directory / f"{LINUX}.tar.gz", LINUX, helper, extra_linux)
+    # The macOS helper is a different binary; it is not paired with the WSL helper.
+    write_tar(directory / f"{MACOS}.tar.gz", MACOS, b"mach-o helper", extra_macos)
     with zipfile.ZipFile(directory / f"{WINDOWS}.zip", "w") as archive:
         archive.writestr(f"{WINDOWS}/bin/fastdiff.exe", b"launcher")
         archive.writestr(f"{WINDOWS}/bin/fastdiff-gui.exe", b"gui")
@@ -43,7 +50,7 @@ def write_assets(directory: Path, helper=b"helper", windows_helper=None, extra_l
 
 def write_sums(directory: Path):
     lines = []
-    for name in (f"{LINUX}.tar.gz", f"{WINDOWS}.zip"):
+    for name in (f"{LINUX}.tar.gz", f"{MACOS}.tar.gz", f"{WINDOWS}.zip"):
         lines.append(f"{hashlib.sha256((directory / name).read_bytes()).hexdigest()}  {name}\n")
     (directory / "SHA256SUMS").write_text("".join(lines), encoding="utf-8")
 
@@ -57,7 +64,7 @@ class VerifyAssetsTests(unittest.TestCase):
     def test_valid_paired_assets_are_accepted(self):
         write_assets(self.directory)
         self.assertEqual(set(draft.verify_assets(self.directory, VERSION)),
-                         {f"{LINUX}.tar.gz", f"{WINDOWS}.zip", "SHA256SUMS"})
+                         {f"{LINUX}.tar.gz", f"{MACOS}.tar.gz", f"{WINDOWS}.zip", "SHA256SUMS"})
 
     def test_missing_or_extra_files_are_rejected(self):
         write_assets(self.directory)
@@ -67,6 +74,15 @@ class VerifyAssetsTests(unittest.TestCase):
         (self.directory / "notes.txt").unlink()
         (self.directory / f"{WINDOWS}.zip").unlink()
         with self.assertRaisesRegex(ValueError, "exactly"):
+            draft.verify_assets(self.directory, VERSION)
+
+    def test_macos_archive_is_required_and_checked_for_layout(self):
+        write_assets(self.directory)
+        (self.directory / f"{MACOS}.tar.gz").unlink()
+        with self.assertRaisesRegex(ValueError, "exactly"):
+            draft.verify_assets(self.directory, VERSION)
+        write_assets(self.directory, extra_macos=[f"{MACOS}/bin/extra"])
+        with self.assertRaisesRegex(ValueError, "Unexpected macOS archive contents"):
             draft.verify_assets(self.directory, VERSION)
 
     def test_corrupted_archive_fails_checksum(self):
@@ -81,7 +97,7 @@ class VerifyAssetsTests(unittest.TestCase):
         sums = self.directory / "SHA256SUMS"
         first = sums.read_text().splitlines()[0]
         sums.write_text(first + "\n", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "exactly the Linux and Windows"):
+        with self.assertRaisesRegex(ValueError, "exactly the Linux, macOS, and Windows"):
             draft.verify_assets(self.directory, VERSION)
         sums.write_text("not a checksum\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "Malformed"):
@@ -223,7 +239,7 @@ class SyncDraftTests(unittest.TestCase):
                 "digest": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()}
         return base | overrides
 
-    def test_creates_a_non_prerelease_draft_with_all_three_assets(self):
+    def test_creates_a_non_prerelease_draft_with_all_four_assets(self):
         gh = FakeGh()
         self.assertEqual(self.sync(gh), "https://example.invalid/draft")
         created = next(c for c in gh.calls if c[:3] == ["api", "-X", "POST"])
@@ -231,14 +247,14 @@ class SyncDraftTests(unittest.TestCase):
         self.assertIn("prerelease=false", created)
         self.assertIn(f"target_commitish={'a' * 40}", created)
         self.assertEqual(len(gh.uploads()), 1)
-        self.assertEqual(len(gh.uploads()[0][5:]), 3)
+        self.assertEqual(len(gh.uploads()[0][5:]), 4)
 
     def test_retry_resumes_a_matching_incomplete_draft(self):
         name = f"{LINUX}.tar.gz"
         gh = FakeGh([self.release(assets=[self.remote_asset(name)])])
         self.sync(gh)
         uploaded = {Path(path).name for path in gh.uploads()[0][5:]}
-        self.assertEqual(uploaded, {f"{WINDOWS}.zip", "SHA256SUMS"})
+        self.assertEqual(uploaded, {f"{MACOS}.tar.gz", f"{WINDOWS}.zip", "SHA256SUMS"})
         self.assertFalse([c for c in gh.calls if c[:3] == ["api", "-X", "POST"]])
 
     def test_resume_patch_does_not_resend_draft_state(self):

@@ -226,7 +226,43 @@ fn config_variable_paths(
 ) -> Result<Vec<PathBuf>> {
     let mut command = git_command(root);
     command.args(["var", variable]);
-    parse_paths(&checked(run(command, 64 * 1024, cancel)?)?)
+    match run(command, 64 * 1024, cancel).and_then(checked) {
+        Ok(output) => parse_paths(&output),
+        Err(Error::Cancelled) => Err(Error::Cancelled),
+        // Git before 2.40 has no such variable. Apple Git, which macOS ships, is 2.39 and
+        // prints its usage text, so the snapshot would otherwise be permanently unavailable.
+        Err(_) => Ok(fallback_config_paths(variable, |name| {
+            std::env::var_os(name)
+        })),
+    }
+}
+
+/// The file Git documents for `variable` when `git var` cannot report it. The system file, when
+/// it exists, is still guarded through the `--show-origin` listing.
+fn fallback_config_paths(
+    variable: &str,
+    environment: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Vec<PathBuf> {
+    let absolute = |path: PathBuf| path.is_absolute().then_some(path);
+    if let Some(path) = environment(variable) {
+        return absolute(PathBuf::from(path)).into_iter().collect();
+    }
+    if variable != "GIT_CONFIG_GLOBAL" {
+        return Vec::new();
+    }
+    let home = environment("HOME").map(PathBuf::from);
+    let configuration = environment("XDG_CONFIG_HOME")
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| home.as_ref().map(|home| home.join(".config")));
+    [
+        configuration.map(|directory| directory.join("git").join("config")),
+        home.map(|home| home.join(".gitconfig")),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(absolute)
+    .collect()
 }
 
 fn included_path(value: &[u8], origin: Option<&Path>) -> Result<PathBuf> {
@@ -313,4 +349,72 @@ fn fingerprint_refs(
         return Err(Error::InvalidData("Unsupported loose ref metadata".into()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fallback_config_paths;
+    use std::{collections::HashMap, ffi::OsString, path::PathBuf};
+
+    fn environment(pairs: &[(&str, PathBuf)]) -> impl Fn(&str) -> Option<OsString> {
+        let map: HashMap<String, OsString> = pairs
+            .iter()
+            .map(|(key, value)| ((*key).to_owned(), value.clone().into_os_string()))
+            .collect();
+        move |name| map.get(name).cloned()
+    }
+
+    // Absolute on every platform; a bare "/home/u" has no drive letter on Windows.
+    fn base() -> PathBuf {
+        std::env::temp_dir().join("fastdiff-config-fallback")
+    }
+
+    #[test]
+    fn global_fallback_uses_xdg_then_home_like_git_var() {
+        let home = base().join("home");
+        let paths =
+            fallback_config_paths("GIT_CONFIG_GLOBAL", environment(&[("HOME", home.clone())]));
+        assert_eq!(
+            paths,
+            [
+                home.join(".config").join("git").join("config"),
+                home.join(".gitconfig")
+            ]
+        );
+        let xdg = base().join("xdg");
+        let paths = fallback_config_paths(
+            "GIT_CONFIG_GLOBAL",
+            environment(&[("HOME", home), ("XDG_CONFIG_HOME", xdg.clone())]),
+        );
+        assert_eq!(paths[0], xdg.join("git").join("config"));
+    }
+
+    #[test]
+    fn explicit_variable_overrides_defaults_and_relative_paths_are_ignored() {
+        let custom = base().join("custom");
+        let paths = fallback_config_paths(
+            "GIT_CONFIG_GLOBAL",
+            environment(&[
+                ("HOME", base().join("home")),
+                ("GIT_CONFIG_GLOBAL", custom.clone()),
+            ]),
+        );
+        assert_eq!(paths, [custom]);
+        let relative = fallback_config_paths(
+            "GIT_CONFIG_SYSTEM",
+            environment(&[("GIT_CONFIG_SYSTEM", PathBuf::from("relative"))]),
+        );
+        assert!(relative.is_empty());
+    }
+
+    #[test]
+    fn system_fallback_is_empty_without_an_override() {
+        assert!(
+            fallback_config_paths(
+                "GIT_CONFIG_SYSTEM",
+                environment(&[("HOME", base().join("home"))])
+            )
+            .is_empty()
+        );
+    }
 }

@@ -277,6 +277,8 @@ fn cached_diff_tracks_rename_and_deletion_without_serving_old_content() {
 }
 
 #[cfg(unix)]
+// APFS rejects non-UTF-8 file names (EILSEQ), so the fixture cannot be created on macOS.
+#[cfg(not(target_os = "macos"))]
 #[test]
 fn cached_diff_keeps_raw_unix_paths_distinct() {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};

@@ -19,8 +19,9 @@ class PackageTests(unittest.TestCase):
         version = packager.release_version(ROOT, None)
         with tempfile.TemporaryDirectory(prefix="fastdiff release ") as directory:
             output = Path(directory)
-            names = [f"fastdiff-{version}-linux-x64.tar.gz", f"fastdiff-{version}-windows-x64.zip"]
-            contents = [b"offline linux fixture", b"offline windows fixture"]
+            names = [f"fastdiff-{version}-linux-x64.tar.gz", f"fastdiff-{version}-macos-arm64.tar.gz",
+                     f"fastdiff-{version}-windows-x64.zip"]
+            contents = [b"offline linux fixture", b"offline macos fixture", b"offline windows fixture"]
             for name, data in zip(names, contents):
                 (output / name).write_bytes(data)
             checksums = packager.package(ROOT, output, f"v{version}")
@@ -39,9 +40,10 @@ class PackageTests(unittest.TestCase):
                 packager.package(ROOT, Path(directory), "v999.0.0")
             self.assertFalse(list(Path(directory).iterdir()))
 
-    def test_missing_either_binary_archive_fails_before_writing(self):
+    def test_missing_any_binary_archive_fails_before_writing(self):
         version = packager.release_version(ROOT, None)
-        names = [f"fastdiff-{version}-linux-x64.tar.gz", f"fastdiff-{version}-windows-x64.zip"]
+        names = [f"fastdiff-{version}-linux-x64.tar.gz", f"fastdiff-{version}-macos-arm64.tar.gz",
+                 f"fastdiff-{version}-windows-x64.zip"]
         for present in [None, *names]:
             with self.subTest(present=present), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory)
