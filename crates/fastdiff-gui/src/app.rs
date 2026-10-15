@@ -422,12 +422,7 @@ impl ReviewTab {
         } else {
             '\\'
         };
-        Ok(format!(
-            "{}{}{}",
-            self.root.trim_end_matches(separator),
-            separator,
-            path
-        ))
+        Ok(join_document_path(&self.root, path, separator))
     }
 
     fn load_document(&mut self) {
@@ -1333,6 +1328,22 @@ impl Drop for Fastdiff {
         self.server.take();
         self.benchmark.finish();
     }
+}
+
+/// Verbatim Windows roots (`\\?\C:\...`) bypass `/` normalization, so Git's `/`-separated
+/// relative paths must use the native separator.
+fn join_document_path(root: &str, relative: &str, separator: char) -> String {
+    let relative = if separator == '\\' {
+        relative.replace('/', "\\")
+    } else {
+        relative.to_owned()
+    };
+    format!(
+        "{}{}{}",
+        root.trim_end_matches(separator),
+        separator,
+        relative
+    )
 }
 
 #[cfg(test)]
