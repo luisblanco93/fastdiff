@@ -109,12 +109,24 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(steps[guard]["if"], TAG_ONLY)
 
     def test_macos_assets_are_built_checked_and_released(self):
-        self.assertIn("runs-on: macos-14", self.jobs["macos"])
-        self.assertIn("scripts/package-unix.sh", self.jobs["macos"])
-        self.assertIn("verify_tar_archive", self.jobs["macos"])
-        self.assertRegex(self.jobs["release-assets"], r"(?m)^    needs: \[linux, macos, windows\]$")
-        self.assertIn("name: macos-arm64", self.jobs["release-assets"])
-        self.assertIn("dist/fastdiff-*-macos-arm64.tar.gz", self.jobs["release-assets"])
+        macos = self.jobs["macos"]
+        self.assertEqual(macos["runs-on"], "macos-14")
+        self.assertIn("scripts/package-unix.sh", run_text(macos))
+        self.assertIn("verify_tar_archive", run_text(macos))
+        release = self.jobs["release-assets"]
+        self.assertEqual(set(needs(release)), {"linux", "macos", "windows"})
+        downloaded = [
+            step["with"]["name"]
+            for step in release["steps"]
+            if step.get("uses", "").startswith("actions/download-artifact")
+        ]
+        self.assertIn("macos-arm64", downloaded)
+        uploaded = next(
+            step["with"]["path"]
+            for step in release["steps"]
+            if step.get("uses", "").startswith("actions/upload-artifact")
+        )
+        self.assertIn("dist/fastdiff-*-macos-arm64.tar.gz", uploaded)
 
     def test_tag_checkout_fetches_history_for_the_main_ancestry_check(self):
         checkout = next(
