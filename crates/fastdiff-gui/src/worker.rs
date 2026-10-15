@@ -310,6 +310,11 @@ pub(crate) enum Event {
         generation: u64,
         document: Arc<PreparedDocument>,
     },
+    /// Cached content shown while the verifying `Diff` is computed; never proof of freshness.
+    Provisional {
+        generation: u64,
+        document: Arc<PreparedDocument>,
+    },
     Search {
         generation: u64,
         request_id: u64,
@@ -794,6 +799,30 @@ fn run_with_discovery(
                 document_path = None;
                 if let Some(watcher) = &mut watcher {
                     report_watch_diagnostics(watcher.update_document(None, &token));
+                }
+                // Stale-while-revalidate: show the last prepared result for this file at once.
+                // The verified `Diff` below replaces it, or confirms it with the same Arc.
+                if let Some(cached) = prepared_cache.peek(view, &file, &token)
+                    && !current_document
+                        .as_ref()
+                        .is_some_and(|current| Arc::ptr_eq(current, &cached))
+                {
+                    // Dropped after the lock is released, like every other retired event.
+                    let retired = if let Ok(_active) = shared.active.lock()
+                        && !token.is_cancelled()
+                    {
+                        queue_event(
+                            &shared,
+                            &context,
+                            Event::Provisional {
+                                generation,
+                                document: cached,
+                            },
+                        )
+                    } else {
+                        None
+                    };
+                    drop(retired);
                 }
                 let availability_error = match backend.document_exists(&file.path, &token) {
                     Ok(available) => {

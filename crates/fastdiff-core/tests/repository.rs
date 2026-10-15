@@ -655,6 +655,32 @@ fn operation_metadata_does_not_retain_index_or_head_sizes() {
     assert!(large_head.comparisons[1].patch.contains("+small working"));
 }
 
+#[test]
+fn diff_is_identical_with_and_without_cached_filter_overrides() {
+    let dir = repo();
+    write(dir.path(), "file", "head\n");
+    commit(dir.path());
+    write(dir.path(), "file", "staged\n");
+    git(dir.path(), &["add", "file"]);
+    write(dir.path(), "file", "working\n");
+    git(dir.path(), &["config", "filter.review.clean", "cat"]);
+    let cancel = CancelToken::default();
+    let cold = Repository::discover(dir.path()).unwrap();
+    let change = cold.status(View::All, &cancel).unwrap().remove(0);
+
+    let warm = Repository::discover(dir.path()).unwrap();
+    warm.status(View::All, &cancel).unwrap();
+    let without_cache = Repository::discover(dir.path()).unwrap();
+
+    let expected = without_cache.diff(&change, View::All, &cancel).unwrap();
+    let cached = warm.diff(&change, View::All, &cancel).unwrap();
+    assert_eq!(expected.comparisons.len(), 2);
+    for (left, right) in expected.comparisons.iter().zip(&cached.comparisons) {
+        assert_eq!(left.label, right.label);
+        assert_eq!(left.patch, right.patch);
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn non_utf8_paths_roundtrip_without_using_patch_headers() {

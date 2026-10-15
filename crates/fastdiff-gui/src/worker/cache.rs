@@ -64,6 +64,22 @@ impl PreparedCache {
         Some(document)
     }
 
+    /// Last prepared document for this exact file, without verifying it or changing recency.
+    pub(super) fn peek(
+        &self,
+        view: View,
+        file: &FileChange,
+        token: &CancelToken,
+    ) -> Option<Arc<PreparedDocument>> {
+        if token.is_cancelled() {
+            return None;
+        }
+        self.entries
+            .iter()
+            .find(|entry| entry.view == view && entry.file == *file)
+            .map(|entry| Arc::clone(&entry.document))
+    }
+
     pub(super) fn candidate(
         &self,
         view: View,

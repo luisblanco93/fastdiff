@@ -60,6 +60,8 @@ pub struct ReviewTab {
     view: View,
     presentation: Option<DiffPresentation>,
     loading: bool,
+    // The presentation is cached content that the verified diff has not confirmed yet.
+    provisional: bool,
     error: Option<String>,
     comparison: usize,
     search: String,
@@ -100,6 +102,7 @@ impl ReviewTab {
             reveal_requested,
             presentation: None,
             loading: true,
+            provisional: false,
             error: None,
             comparison: 0,
             search: String::new(),
@@ -151,6 +154,7 @@ impl ReviewTab {
         self.selected = Some(file.path.clone());
         self.document_mode = false;
         self.loading = true;
+        self.provisional = false;
         self.error = None;
         if !preserve {
             self.presentation = None;
@@ -306,9 +310,15 @@ impl ReviewTab {
                     }) {
                         self.loading = false;
                         self.error = None;
+                        // Hits were cleared with the old presentation; confirm-in-place must
+                        // search again, as the full path below does.
+                        if std::mem::take(&mut self.provisional) && !self.search.is_empty() {
+                            self.request_search();
+                        }
                         ready = true;
                         continue;
                     }
+                    self.provisional = false;
                     let mut presentation = DiffPresentation::new(document, unified);
                     if let Some(previous) = &self.presentation {
                         presentation.preserve_state_from(previous);
@@ -329,6 +339,38 @@ impl ReviewTab {
                         self.request_search();
                     }
                     ready = true;
+                }
+                Event::Provisional {
+                    generation,
+                    document,
+                } if generation == self.generation
+                    && document.is_document == self.document_mode =>
+                {
+                    // Cached content stays flagged as loading until the verified diff arrives.
+                    // Skip it when it is already on screen, so selection and drag survive.
+                    if !self.loading
+                        || self.presentation.as_ref().is_some_and(|presentation| {
+                            std::sync::Arc::ptr_eq(&presentation.document, &document)
+                        })
+                    {
+                        continue;
+                    }
+                    self.provisional = true;
+                    let mut presentation = DiffPresentation::new(document, unified);
+                    if let Some(previous) = &self.presentation {
+                        presentation.preserve_state_from(previous);
+                    }
+                    presentation.search_hits.clone_from(&self.search_hits);
+                    self.comparison = self.comparison.min(
+                        presentation
+                            .document
+                            .document
+                            .comparisons
+                            .len()
+                            .saturating_sub(1),
+                    );
+                    self.presentation = Some(presentation);
+                    self.error = None;
                 }
                 Event::Search {
                     generation,
@@ -353,7 +395,8 @@ impl ReviewTab {
                     message,
                 } if generation == self.generation => {
                     self.error = Some(message);
-                    if self.document_mode {
+                    if self.document_mode || self.provisional {
+                        self.provisional = false;
                         self.presentation = None;
                         self.clear_search_results();
                     }

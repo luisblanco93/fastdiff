@@ -542,3 +542,81 @@ fn measure_prepared_diff_cache_navigation() {
         })
     );
 }
+
+/// Collect every Diff/Provisional event for `generation` up to and including the verified diff.
+fn load_with_provisional(
+    worker: &Worker,
+    generation: u64,
+    view: View,
+    file: &FileChange,
+) -> (Vec<Arc<PreparedDocument>>, Arc<PreparedDocument>) {
+    worker.diff(generation, view, file.clone());
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut provisional = Vec::new();
+    while Instant::now() < deadline {
+        for event in worker.drain_events() {
+            match event {
+                Event::Provisional {
+                    generation: actual,
+                    document,
+                } if actual == generation => provisional.push(document),
+                Event::Diff {
+                    generation: actual,
+                    document,
+                } if actual == generation => return (provisional, document),
+                _ => {}
+            }
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    panic!("Worker did not deliver the verified diff");
+}
+
+#[test]
+fn revisit_confirms_cached_content_and_the_displayed_file_gets_no_provisional() {
+    let (directory, worker) = repository_worker();
+    wait_status(&worker, 0, false);
+    std::fs::write(directory.path().join("notes.txt"), "needle-a\n").unwrap();
+    std::fs::write(directory.path().join("other.txt"), "needle-b\n").unwrap();
+    worker.refresh(1, View::All);
+    let files = wait_status(&worker, 1, false);
+    let (provisional, first) =
+        load_with_provisional(&worker, 2, View::All, file(&files, b"notes.txt"));
+    assert!(provisional.is_empty());
+    // Re-requesting the document already on screen must not rebuild it.
+    let (provisional, same) =
+        load_with_provisional(&worker, 3, View::All, file(&files, b"notes.txt"));
+    assert!(provisional.is_empty());
+    assert!(Arc::ptr_eq(&first, &same));
+    load_with_provisional(&worker, 4, View::All, file(&files, b"other.txt"));
+    let (provisional, verified) =
+        load_with_provisional(&worker, 5, View::All, file(&files, b"notes.txt"));
+    assert_eq!(provisional.len(), 1);
+    assert!(Arc::ptr_eq(&first, &provisional[0]));
+    assert!(Arc::ptr_eq(&first, &verified));
+}
+
+#[test]
+fn edited_file_shows_cached_content_before_the_fresh_document() {
+    let (directory, worker) = repository_worker();
+    wait_status(&worker, 0, false);
+    let path = directory.path().join("notes.txt");
+    std::fs::write(&path, "before\n").unwrap();
+    std::fs::write(directory.path().join("other.txt"), "other\n").unwrap();
+    worker.refresh(1, View::All);
+    let files = wait_status(&worker, 1, false);
+    let (_, first) = load_with_provisional(&worker, 2, View::All, file(&files, b"notes.txt"));
+    load_with_provisional(&worker, 3, View::All, file(&files, b"other.txt"));
+    std::fs::write(&path, "after!\n").unwrap();
+    let (provisional, fresh) =
+        load_with_provisional(&worker, 4, View::All, file(&files, b"notes.txt"));
+    assert_eq!(provisional.len(), 1);
+    assert!(Arc::ptr_eq(&first, &provisional[0]));
+    assert!(!Arc::ptr_eq(&first, &fresh));
+    assert_fresh(
+        directory.path(),
+        View::All,
+        file(&files, b"notes.txt"),
+        &fresh,
+    );
+}
