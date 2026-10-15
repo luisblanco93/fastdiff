@@ -8,7 +8,7 @@ For an agent handling an app installation request: execute this recipe directly 
 
 ## Install fastdiff
 
-Requires Python 3.11+ and HTTPS access to `luisblanco93/fastdiff` and its [releases](https://github.com/luisblanco93/fastdiff/releases). The repository is public, so no GitHub account, token, or GitHub CLI is needed. The installer downloads the latest stable release. Preserve existing installations on download failure. Supported environments are Linux x64 with glibc and X11/Wayland plus OpenGL, native Windows x64, and WSL2 with Windows interoperability, `powershell.exe`, and `wslpath`. Git is needed only for reviewing repositories.
+Requires Python 3.11+ and HTTPS access to `luisblanco93/fastdiff` and its [releases](https://github.com/luisblanco93/fastdiff/releases). The repository is public, so no GitHub account, token, or GitHub CLI is needed. The installer downloads the latest stable release. Preserve existing installations on download failure. Supported environments are Linux x64 with glibc and X11/Wayland plus OpenGL, macOS 14 or newer on Apple Silicon (arm64; Intel Macs are not supported), native Windows x64, and WSL2 with Windows interoperability, `powershell.exe`, and `wslpath`. Git is needed only for reviewing repositories.
 
 Run one command for your platform to install terminal `dff`.
 
@@ -24,7 +24,9 @@ with tempfile.TemporaryDirectory(prefix='fastdiff-') as stage:
 
 Open a new terminal after setup, then run `dff` from your project. For the current PowerShell session, use `& "$env:LOCALAPPDATA\fastdiff\bin\dff.cmd"`.
 
-### Linux or WSL2
+### Linux, macOS, or WSL2
+
+On macOS, the system `python3` is older than 3.11. Install a current Python first, for example `brew install python@3.12`, and run the command below with that interpreter (`python3.12`).
 
 ```bash
 python3 -c 'import pathlib, subprocess, sys, tempfile, urllib.request
@@ -40,14 +42,20 @@ If setup prints PATH guidance, apply it to the current shell:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+On macOS, `~/.local/bin` is not on the default zsh PATH. To keep it, add the export line to `~/.zshrc`:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+```
+
 Then run `dff` from your project. WSL setup installs the matching Linux helper and Windows app; launching uses the Windows window by default. Use `dff . --native` for a Linux window in a graphical Linux/WSLg session.
 
 ### What installation changes
 
 The stable root `install.py` resolves `main` to one commit and downloads the three app runtime modules from `scripts/runtime/`. It downloads the compiled app archives and `SHA256SUMS` directly from the [latest stable release](https://github.com/luisblanco93/fastdiff/releases/latest). Archive validation, checksums, staged installation, rollback, downgrade protection, and Windows/WSL pairing remain enforced.
 
-Installer and skill fixes become available after they are pushed to `main`; they do not require an app version bump or rebuilt binaries. Linux and Windows archives contain binaries and the bundled Material icons license. The canonical agent skill stays in this repository at `skills/fastdiff/SKILL.md`.
-| Item | Windows | Linux/WSL |
+Installer and skill fixes become available after they are pushed to `main`; they do not require an app version bump or rebuilt binaries. Linux, macOS, and Windows archives contain binaries and the bundled Material icons license. The canonical agent skill stays in this repository at `skills/fastdiff/SKILL.md`.
+| Item | Windows | Linux/macOS/WSL |
 |---|---|---|
 | App and runtime | `%LOCALAPPDATA%\fastdiff` | `${XDG_DATA_HOME:-$HOME/.local/share}/fastdiff` |
 | Terminal command | `%LOCALAPPDATA%\fastdiff\bin\dff.cmd` | `~/.local/bin/dff` |
@@ -89,6 +97,7 @@ Remove the copied `fastdiff` skill folder separately through your agent's skill 
 - **Network or access failure:** report the error and preserve existing installations.
 - **Download, checksum, or package error:** preserve the existing app and configuration; report the failed download or validation.
 - **`dff` not found:** open a new Windows terminal, apply POSIX PATH guidance, or use the absolute command from the installed-paths table. Rerun the installation command if the wrapper is missing.
+- **`dff` stops working after a Python upgrade (macOS):** the command records the interpreter path that ran the installer. Homebrew's stable `opt` path survives upgrades, but a removed or renamed Python still breaks it; rerun the installation command with the current Python.
 - **Setup required or invalid receipt:** rerun the installation command. Launch does not download or repair automatically.
 - **Conflicting terminal command:** preserve the user-owned or locally edited file and resolve the reported collision before rerunning installation.
 - **Skill unavailable:** ask the host agent to install the canonical `skills/fastdiff/SKILL.md` in its supported skills directory, then reload its skills. Terminal `dff` remains available independently.
@@ -97,11 +106,21 @@ Remove the copied `fastdiff` skill folder separately through your agent's skill 
 
 ## Manual app archives
 
-For a standalone application without the managed `dff` command, use the compiled `fastdiff-<version>-linux-x64.tar.gz` or `fastdiff-<version>-windows-x64.zip` asset and matching `SHA256SUMS` from the same stable release. Verify the archive before extracting. Keep `fastdiff` and `fastdiff-gui` together in the extracted `bin` directory; Windows names end in `.exe`. Add that directory to PATH and launch `fastdiff`.
+For a standalone application without the managed `dff` command, use the compiled `fastdiff-<version>-linux-x64.tar.gz`, `fastdiff-<version>-macos-arm64.tar.gz`, or `fastdiff-<version>-windows-x64.zip` asset and matching `SHA256SUMS` from the same stable release. Verify the archive before extracting. Keep `fastdiff` and `fastdiff-gui` together in the extracted `bin` directory; Windows names end in `.exe`. Add that directory to PATH and launch `fastdiff`.
 
-Linux packages target x86_64 glibc systems; CI uses Ubuntu 22.04. Windows packages target x86_64; CI and local Windows checks use native MSVC. Manual app archives need neither Python nor GitHub CLI at launch.
+Linux packages target x86_64 glibc systems; CI uses Ubuntu 22.04. macOS packages target Apple Silicon (arm64); CI uses macOS 14. Windows packages target x86_64; CI and local Windows checks use native MSVC. Manual app archives need neither Python nor GitHub CLI at launch.
 
 See [usage](usage.md) for launch options, including `--theme`.
+
+### macOS
+
+The macOS binaries are ad-hoc signed, not notarized. An archive downloaded in a browser carries a quarantine attribute that makes Gatekeeper block the binaries. Remove it after verifying the checksum and extracting:
+
+```bash
+xattr -dr com.apple.quarantine fastdiff-<version>-macos-arm64
+```
+
+The managed installer downloads without a browser, so installed binaries are not quarantined.
 
 ### Windows and WSL2
 
@@ -155,8 +174,10 @@ Linux, creating a new release build directory:
 
 ```bash
 CARGO_TARGET_DIR=target/linux-release cargo build --release --locked --workspace
-bash scripts/package-linux.sh target/linux-release/release dist
+bash scripts/package-unix.sh target/linux-release/release dist
 ```
+
+`scripts/package-unix.sh` names the archive for the host: `linux-x64` on Linux and `macos-arm64` on Apple Silicon macOS, where it also verifies the ad-hoc code signature.
 
 For a Windows GNU cross-build from Linux/WSL, install the Rust Windows GNU target and an x86_64 MinGW toolchain first. With `x86_64-w64-mingw32-gcc` on PATH:
 
@@ -178,7 +199,7 @@ cargo build --release --locked --workspace
 
 ZIP entries use forward slashes so the installer can safely extract them on either platform.
 
-Application archives contain binaries and the bundled icon license: Linux has `bin/fastdiff` and `bin/fastdiff-gui`; Windows has `bin/fastdiff.exe`, `bin/fastdiff-gui.exe`, and `wsl/fastdiff`. Both include `licenses/material-icons-LICENSE`, copied unchanged from `crates/fastdiff-gui/assets/material/LICENSE`; the icons themselves are embedded in the GUI executable. The canonical agent skill and documentation stay in this repository. Releases contain three assets: the Linux archive, the Windows archive, and `SHA256SUMS`.
+Application archives contain binaries and the bundled icon license: Linux and macOS have `bin/fastdiff` and `bin/fastdiff-gui`; Windows has `bin/fastdiff.exe`, `bin/fastdiff-gui.exe`, and `wsl/fastdiff`. Both include `licenses/material-icons-LICENSE`, copied unchanged from `crates/fastdiff-gui/assets/material/LICENSE`; the icons themselves are embedded in the GUI executable. The canonical agent skill and documentation stay in this repository. Releases contain four assets: the Linux archive, the macOS archive, the Windows archive, and `SHA256SUMS`.
 
 The focused packaging checks are `python3 -m unittest discover -s scripts -p 'test_app_package.py'` on Linux and `./scripts/test-package-windows.ps1` on Windows; they check exact archive contents and the bundled license contents using fixtures without compiling the app.
 

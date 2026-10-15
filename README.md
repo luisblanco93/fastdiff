@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE-MIT"><img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue"></a>
   <img alt="Rust 1.90+" src="https://img.shields.io/badge/rust-1.90%2B-orange">
-  <img alt="Platforms: Linux and Windows" src="https://img.shields.io/badge/platform-Linux%20%C2%B7%20Windows-lightgrey">
+  <img alt="Platforms: Linux, macOS, and Windows" src="https://img.shields.io/badge/platform-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-lightgrey">
   <a href="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml"><img alt="CI" src="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml/badge.svg"></a>
 </p>
 
@@ -24,7 +24,7 @@
 >
 > 1. Read https://raw.githubusercontent.com/luisblanco93/fastdiff/main/docs/distribution.md
 >    and run the Python one-liner under "Install fastdiff" for my platform
->    (Linux/WSL2 or Windows). It downloads the released binaries and installs `dff`.
+>    (Linux/WSL2, macOS on Apple Silicon, or Windows). It downloads the released binaries and installs `dff`.
 > 2. Download https://raw.githubusercontent.com/luisblanco93/fastdiff/main/skills/fastdiff/SKILL.md
 >    and save it as `fastdiff/SKILL.md` in your user-level skills directory
 >    (Claude Code: ~/.claude/skills/fastdiff/SKILL.md, Codex/OpenCode: ~/.agents/skills/fastdiff/SKILL.md).
@@ -54,7 +54,7 @@ Recorded 2026-10-06: 30 cold launches each on an earlier build, 2-file repositor
 - **Everything that changed, in one place.** Unstaged, staged, unpushed commits, and untracked files, each labeled, plus the local reflog.
 - **Built for coding agents.** `dff` returns as soon as the window accepts the request, so an agent can open the diff and carry on. A shared [skill](skills/fastdiff/SKILL.md) works with any agent that has a shell.
 - **Read-only by design.** No staging, editing, or reverting. Opening a diff cannot change your repository.
-- **Linux and Windows.** Native windows on both, with a paired helper for repositories that live in WSL.
+- **Linux, macOS, and Windows.** Native windows on all three (Apple Silicon on macOS), with a paired helper for repositories that live in WSL.
 
 ## Install
 
