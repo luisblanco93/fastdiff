@@ -1,4 +1,4 @@
-use fastdiff_core::{CancelToken, GitPath, ReflogRequest, Repository, RowKind, View};
+use fastdiff_core::{CancelToken, FileChange, GitPath, ReflogRequest, Repository, RowKind, View};
 use std::{fs, path::Path, process::Command};
 use tempfile::TempDir;
 
@@ -283,11 +283,14 @@ fn binary_and_conflicts_have_clear_summaries() {
         .into_iter()
         .find(|f| f.conflict)
         .unwrap();
+    // Without an upstream, `main` is ahead of `other`, so the conflict follows an Unpushed one.
     assert!(
         repository
             .diff(&conflict, View::All, &cancel)
             .unwrap()
-            .comparisons[0]
+            .comparisons
+            .last()
+            .unwrap()
             .summary
             .as_ref()
             .unwrap()
@@ -1360,21 +1363,6 @@ fn unpushed_reports_a_branch_without_commits() {
 }
 
 #[test]
-fn unpushed_reports_a_missing_upstream() {
-    let dir = repo();
-    write(dir.path(), "a.txt", "one\n");
-    commit(dir.path());
-    let (count, notice) = notice(dir.path());
-    assert_eq!(count, 0);
-    assert!(
-        notice
-            .as_deref()
-            .is_some_and(|text| text.contains("no configured upstream commit")),
-        "{notice:?}"
-    );
-}
-
-#[test]
 fn unpushed_lists_local_commits_ahead_of_the_upstream() {
     let dir = repo();
     write(dir.path(), "a.txt", "one\n");
@@ -1441,4 +1429,267 @@ fn unpushed_surfaces_a_failing_head_query_on_a_branch() {
             .status_with_notice(View::Unpushed, &CancelToken::default())
             .is_err()
     );
+}
+
+const FALLBACK_NOTICE: &str = "No upstream commit: Unpushed shows commits that are not on another local or remote-tracking branch.";
+const WHOLE_HISTORY_UNPUSHED_NOTICE: &str =
+    "No upstream commit or other branch: Unpushed shows the whole history of this branch.";
+const WHOLE_HISTORY_ALL_NOTICE: &str = "No upstream commit or other branch: open the Unpushed view to review the whole history of this branch.";
+const UNRELATED_NOTICE: &str =
+    "Unpushed unavailable: no upstream commit, and HEAD shares no history with other branches.";
+const SHA1_EMPTY_TREE: &str = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+const SHA256_EMPTY_TREE: &str = "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321";
+
+fn rev(root: &Path, revision: &str) -> String {
+    let output = Command::new("git")
+        .current_dir(root)
+        .args(["rev-parse", revision])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{revision}");
+    String::from_utf8(output.stdout).unwrap().trim().to_owned()
+}
+
+fn status(root: &Path, view: View) -> (Vec<FileChange>, Option<String>) {
+    Repository::discover(root)
+        .unwrap()
+        .status_with_notice(view, &CancelToken::default())
+        .unwrap()
+}
+
+fn paths(files: &[FileChange]) -> Vec<String> {
+    let mut paths: Vec<_> = files.iter().map(|file| file.path.display()).collect();
+    paths.sort();
+    paths
+}
+
+fn base_of(file: &FileChange) -> &str {
+    &file.committed.as_ref().unwrap().base
+}
+
+/// One commit on `main`, mirrored as `refs/remotes/origin/main`, then a `feature` branch.
+fn feature_after_origin() -> TempDir {
+    let dir = repo();
+    write(dir.path(), "base.txt", "base\n");
+    commit(dir.path());
+    git(
+        dir.path(),
+        &["update-ref", "refs/remotes/origin/main", "HEAD"],
+    );
+    git(dir.path(), &["switch", "-c", "feature"]);
+    dir
+}
+
+#[test]
+fn unpushed_without_upstream_compares_with_remote_tracking_branches() {
+    let dir = feature_after_origin();
+    write(dir.path(), "one.txt", "one\n");
+    commit(dir.path());
+    write(dir.path(), "two.txt", "two\n");
+    commit(dir.path());
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["one.txt", "two.txt"]);
+    assert_eq!(notice.as_deref(), Some(FALLBACK_NOTICE));
+    assert_eq!(base_of(&files[0]), rev(dir.path(), "origin/main"));
+}
+
+#[test]
+fn unpushed_without_upstream_is_empty_when_head_is_on_a_remote_branch() {
+    let dir = feature_after_origin();
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert!(files.is_empty());
+    assert_eq!(notice.as_deref(), Some(FALLBACK_NOTICE));
+    git(dir.path(), &["switch", "main"]);
+    let (files, notice) = status(dir.path(), View::All);
+    assert!(files.is_empty());
+    assert_eq!(notice.as_deref(), Some(FALLBACK_NOTICE));
+}
+
+#[test]
+fn unpushed_without_upstream_uses_newest_base_after_merging_remote() {
+    let dir = repo();
+    write(dir.path(), "first.txt", "first\n");
+    commit(dir.path());
+    write(dir.path(), "second.txt", "second\n");
+    commit(dir.path());
+    git(dir.path(), &["switch", "-c", "feature", "HEAD~1"]);
+    write(dir.path(), "own1.txt", "own\n");
+    commit(dir.path());
+    git(dir.path(), &["switch", "-c", "side", "main"]);
+    write(dir.path(), "remote.txt", "remote\n");
+    commit(dir.path());
+    git(
+        dir.path(),
+        &["update-ref", "refs/remotes/origin/main", "HEAD"],
+    );
+    git(dir.path(), &["switch", "feature"]);
+    git(dir.path(), &["branch", "-D", "side"]);
+    git(
+        dir.path(),
+        &["merge", "--no-edit", "refs/remotes/origin/main"],
+    );
+    write(dir.path(), "own2.txt", "own\n");
+    commit(dir.path());
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["own1.txt", "own2.txt"]);
+    assert_eq!(notice.as_deref(), Some(FALLBACK_NOTICE));
+    assert_eq!(base_of(&files[0]), rev(dir.path(), "origin/main"));
+}
+
+#[test]
+fn unpushed_without_upstream_excludes_commits_on_any_remote() {
+    let dir = feature_after_origin();
+    write(dir.path(), "pushed.txt", "pushed\n");
+    commit(dir.path());
+    git(
+        dir.path(),
+        &["update-ref", "refs/remotes/fork/feature", "HEAD"],
+    );
+    write(dir.path(), "local.txt", "local\n");
+    commit(dir.path());
+    let (files, _) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["local.txt"]);
+    assert_eq!(base_of(&files[0]), rev(dir.path(), "fork/feature"));
+}
+
+#[test]
+fn unpushed_without_upstream_compares_with_other_local_branches() {
+    let dir = repo();
+    write(dir.path(), "base.txt", "base\n");
+    commit(dir.path());
+    git(dir.path(), &["switch", "-c", "a"]);
+    write(dir.path(), "a.txt", "a\n");
+    commit(dir.path());
+    git(dir.path(), &["switch", "-c", "b"]);
+    write(dir.path(), "b.txt", "b\n");
+    commit(dir.path());
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["b.txt"]);
+    assert_eq!(notice.as_deref(), Some(FALLBACK_NOTICE));
+    assert_eq!(base_of(&files[0]), rev(dir.path(), "a"));
+}
+
+#[test]
+fn unpushed_without_upstream_shows_whole_history_without_other_refs() {
+    let dir = repo();
+    write(dir.path(), "a.txt", "one\n");
+    commit(dir.path());
+    write(dir.path(), "b.txt", "two\n");
+    commit(dir.path());
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["a.txt", "b.txt"]);
+    assert_eq!(notice.as_deref(), Some(WHOLE_HISTORY_UNPUSHED_NOTICE));
+    assert_eq!(base_of(&files[0]), SHA1_EMPTY_TREE);
+    let repository = Repository::discover(dir.path()).unwrap();
+    let patch = repository
+        .diff(&files[0], View::Unpushed, &CancelToken::default())
+        .unwrap()
+        .comparisons
+        .remove(0)
+        .patch;
+    assert!(
+        patch.contains("new file") && patch.contains("+one"),
+        "{patch}"
+    );
+    write(dir.path(), "c.txt", "three\n");
+    let (files, notice) = status(dir.path(), View::All);
+    assert_eq!(paths(&files), ["c.txt"]);
+    assert!(files[0].committed.is_none());
+    assert_eq!(notice.as_deref(), Some(WHOLE_HISTORY_ALL_NOTICE));
+}
+
+#[test]
+fn unpushed_without_upstream_uses_the_sha256_empty_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    git(
+        dir.path(),
+        &["init", "-b", "main", "--object-format=sha256"],
+    );
+    git(dir.path(), &["config", "user.name", "Diff test"]);
+    git(
+        dir.path(),
+        &["config", "user.email", "diff@example.invalid"],
+    );
+    write(dir.path(), "a.txt", "one\n");
+    commit(dir.path());
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["a.txt"]);
+    assert_eq!(notice.as_deref(), Some(WHOLE_HISTORY_UNPUSHED_NOTICE));
+    assert_eq!(base_of(&files[0]), SHA256_EMPTY_TREE);
+    let repository = Repository::discover(dir.path()).unwrap();
+    let patch = repository
+        .diff(&files[0], View::Unpushed, &CancelToken::default())
+        .unwrap()
+        .comparisons
+        .remove(0)
+        .patch;
+    assert!(patch.contains("+one"), "{patch}");
+}
+
+#[test]
+fn unpushed_without_upstream_reports_history_unrelated_to_other_branches() {
+    let dir = repo();
+    write(dir.path(), "a.txt", "one\n");
+    commit(dir.path());
+    git(dir.path(), &["switch", "--orphan", "other"]);
+    write(dir.path(), "b.txt", "two\n");
+    commit(dir.path());
+    for view in [View::Unpushed, View::All] {
+        let (files, notice) = status(dir.path(), view);
+        assert!(files.is_empty());
+        assert_eq!(notice.as_deref(), Some(UNRELATED_NOTICE));
+    }
+}
+
+#[test]
+fn unpushed_upstream_takes_precedence_over_other_branches() {
+    let dir = repo();
+    write(dir.path(), "base.txt", "base\n");
+    commit(dir.path());
+    upstream(dir.path());
+    write(dir.path(), "local.txt", "local\n");
+    commit(dir.path());
+    git(
+        dir.path(),
+        &["update-ref", "refs/remotes/origin/main", "HEAD"],
+    );
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["local.txt"]);
+    assert_eq!(notice, None);
+    assert_eq!(base_of(&files[0]), rev(dir.path(), "upstream"));
+}
+
+#[test]
+fn unpushed_falls_back_when_configured_upstream_ref_is_gone() {
+    let dir = repo();
+    write(dir.path(), "base.txt", "base\n");
+    commit(dir.path());
+    git(dir.path(), &["branch", "keep"]);
+    git(dir.path(), &["branch", "gone"]);
+    git(dir.path(), &["branch", "--set-upstream-to=gone", "main"]);
+    git(dir.path(), &["branch", "-D", "gone"]);
+    write(dir.path(), "local.txt", "local\n");
+    commit(dir.path());
+    let (files, notice) = status(dir.path(), View::Unpushed);
+    assert_eq!(paths(&files), ["local.txt"]);
+    assert_eq!(notice.as_deref(), Some(FALLBACK_NOTICE));
+    assert_eq!(base_of(&files[0]), rev(dir.path(), "keep"));
+}
+
+#[test]
+fn all_merges_fallback_commits_with_working_changes() {
+    let dir = feature_after_origin();
+    write(dir.path(), "shared.txt", "committed\n");
+    write(dir.path(), "only.txt", "committed\n");
+    commit(dir.path());
+    write(dir.path(), "shared.txt", "working\n");
+    let (files, notice) = status(dir.path(), View::All);
+    assert_eq!(paths(&files), ["only.txt", "shared.txt"]);
+    assert_eq!(notice.as_deref(), Some(FALLBACK_NOTICE));
+    let shared = files
+        .iter()
+        .find(|file| file.path.display() == "shared.txt")
+        .unwrap();
+    assert!(shared.unstaged && shared.committed.is_some());
+    assert_eq!(base_of(shared), rev(dir.path(), "origin/main"));
 }

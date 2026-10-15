@@ -15,6 +15,7 @@ use std::{
 
 mod reflog;
 mod reflog_snapshot;
+mod unpushed;
 mod watch;
 
 #[derive(Debug, Clone)]
@@ -111,7 +112,7 @@ impl Repository {
     ) -> Result<(Vec<FileChange>, Option<String>)> {
         let mut metadata = ReviewMetadata::default();
         let (committed, notice) = if matches!(view, View::All | View::Unpushed) {
-            self.unpushed(&mut metadata, cancel)?
+            self.unpushed(view, &mut metadata, cancel)?
         } else {
             (Vec::new(), None)
         };
@@ -194,13 +195,14 @@ impl Repository {
 
     fn unpushed(
         &self,
+        view: View,
         metadata: &mut ReviewMetadata,
         cancel: &CancelToken,
     ) -> Result<(Vec<FileChange>, Option<String>)> {
         // HEAD, its commit, and the upstream commit do not depend on each other. Run them
         // together but consume the results in the original order, so a failure is reported
         // only where the sequential code would have reached it. The filter probe is not
-        // started here, so detached, unborn, and no-upstream results never run it.
+        // started here, so detached and unborn results never run it.
         let (branch, head, upstream) = thread::scope(|scope| {
             let head = scope.spawn(|| self.commit_id("HEAD", cancel));
             let upstream = scope.spawn(|| self.commit_id("@{upstream}", cancel));
@@ -217,7 +219,7 @@ impl Repository {
                 Some("Unpushed unavailable: HEAD is detached.".into()),
             ));
         }
-        checked(output)?;
+        let head_ref = checked(output)?;
         let Some(head) = head? else {
             return Ok((
                 Vec::new(),
@@ -225,10 +227,7 @@ impl Repository {
             ));
         };
         let Some(upstream) = upstream? else {
-            return Ok((
-                Vec::new(),
-                Some("Unpushed unavailable: no configured upstream commit. Set an upstream and fetch its history.".into()),
-            ));
+            return self.unpushed_without_upstream(&head_ref, &head, view, metadata, cancel);
         };
         // Both refs resolved, so the probe overlaps merge-base; it is only wasted when the
         // histories are unrelated.
@@ -246,6 +245,19 @@ impl Repository {
             ));
         }
         let base = parse_commit_id(&checked(output)?)?;
+        Ok((
+            self.committed_changes(&base, &head, metadata, cancel)?,
+            None,
+        ))
+    }
+
+    fn committed_changes(
+        &self,
+        base: &str,
+        head: &str,
+        metadata: &mut ReviewMetadata,
+        cancel: &CancelToken,
+    ) -> Result<Vec<FileChange>> {
         let mut command = self.review_command(metadata, cancel)?;
         command.args([
             "diff",
@@ -254,12 +266,12 @@ impl Repository {
             "--find-renames",
             "--no-ext-diff",
             "--no-textconv",
-            &base,
-            &head,
+            base,
+            head,
             "--",
         ]);
         let bytes = checked(run(command, 16 * 1024 * 1024, cancel)?)?;
-        Ok((parse_committed(&bytes, &base, &head)?, None))
+        parse_committed(&bytes, base, head)
     }
 
     fn commit_id(&self, revision: &str, cancel: &CancelToken) -> Result<Option<String>> {
