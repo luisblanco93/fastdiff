@@ -47,6 +47,80 @@ Recorded YYYY-MM-DD from revision `<commit>`. Tagged CI run: <link>.
 
 Rules: report only checks that were executed; state versions and platforms; keep the raw output or its link; list what was skipped.
 
+## Developer validation
+
+One policy for every contributor and coding agent (Codex, Claude Code, or a person). It uses only the shell commands below; it does not depend on any agent's hooks, commands, memory, or session context. Local agent files such as `AGENTS.md` and `CLAUDE.md` are untracked here (see `.gitignore`), so a local copy should link to this section rather than restate it.
+
+### What to run, and when
+
+CI runs only for `v*` tags and manual dispatch, so the local checks are the gate for pull requests and `main`. Run the cheapest check that covers the change while editing, and the full set at the delivery boundaries.
+
+| Moment | Run |
+| -- | -- |
+| While editing | Focused tests for the touched module and its consumers (commands below). Not the full gate after each edit. |
+| Before pushing a pull request | Format, Clippy, `cargo test --workspace --locked`, and Python tests |
+| Distribution-sensitive change (Cargo/toolchain/dependencies, assets, native startup or rendering, `install.py`, `scripts/runtime/`, packaging, workflows, their tests) | The above plus the packaging and native-smoke checks on the affected platform; a Linux pass does not verify Windows |
+| Release candidate | The exact candidate commit through the full local set and the tagged CI run ([releasing](releasing.md)) |
+| Performance measurement | Explicit opt-in only ([performance](performance.md)); never a gate |
+
+Ambiguous impact defaults to the broader check.
+
+### Focused commands
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test -p fastdiff-core --locked                        # core library and tests/repository.rs
+cargo test -p fastdiff-cli --locked --test protocol         # helper protocol; also: ipc, launcher, launch_process
+cargo test -p fastdiff-gui --locked worker::                # worker, cache, watcher, reflog, recovery
+cargo test -p fastdiff-gui --locked app::                   # app state, sidebar, shortcuts
+python3 -m unittest scripts.test_release_workflow           # any scripts/test_*.py module
+python3 -m unittest discover -s scripts -p 'test_*.py'      # all Python tests
+```
+
+Windows runs use `--test-threads=2` in CI (`cargo test --workspace --locked -- --test-threads=2`). A worker test that fails only under the default parallelism is a load-sensitivity defect to repair with a progress-based wait, not a reason to raise a deadline (LIT-21, LIT-31).
+
+### Rules
+
+1. Decide whether a failure is an application defect or a test/harness defect before changing an assertion. A production defect gets its own scoped fix; its test is not weakened.
+2. Never resolve a failure with `#[ignore]`, `continue-on-error`, retry-until-green, or a blanket timeout increase.
+3. Keep path-location equivalence (short/long names, canonical prefixes, external Git directories) apart from textual contracts (raw Git bytes, serialized values, forwarded arguments). Normalize only the former.
+4. Each new test protects an identifiable risk; reuse existing coverage where it is sufficient. Do not spawn Git or processes for pure logic, but keep real integrations at the boundaries.
+5. Use explicit started/blocked/released/completed handshakes instead of sleeps. A watchdog timeout detects hangs, is not a performance budget, and reports the last state or event seen.
+6. Keep focused performance invariants such as avoiding extra Git work on unchanged state. Do not delete all call-count assertions, and do not assert incidental call order or command spelling.
+7. Report the commands actually run, with versions and platform, and name every platform or check that was not run.
+8. When two agents work on one branch, agree who owns it and hand off with the commit, changed files, checks run, blockers, and the next step. Do not overwrite the other's work or repeat costly checks on an unchanged candidate.
+
+### Suite protection map
+
+Initial suite-level map, to be refined as tests are consolidated (LIT-27 PR 3). When a test is deleted or merged, record the protected risk and the remaining executable protection in the pull request.
+
+| Suite | Main risks protected |
+| -- | -- |
+| `crates/fastdiff-core/tests/repository.rs`, `src/repository/*_tests.rs` | Read-only Git behavior, correct diffs and status, filter safety, raw path handling, size and binary limits |
+| `crates/fastdiff-cli/tests/{protocol,ipc}.rs` | Helper protocol compatibility, request/response shape, stale-result rejection |
+| `crates/fastdiff-cli/tests/{launcher,launch_process}.rs` | Launch, argument forwarding, process cleanup |
+| `crates/fastdiff-gui/src/worker/*_tests.rs` | Cancellation and process cleanup, stale-result rejection, cache correctness, watcher and reflog refresh, recovery after restart |
+| `crates/fastdiff-gui/src/app/*_tests.rs` | Selection and refresh behavior, responsive layout, shortcuts, snapshot stability |
+| `scripts/test_{installer,plugin_*,launch_*}.py` | Installer and update safety, runtime launch, uninstall |
+| `scripts/test_release_*.py`, `test_bump_version.py`, `test_app_package.py` | Tag/version/changelog/ancestry guard, draft-release controls, checksums, archive contents, paired helper |
+
+## CI failure classification (LIT-27)
+
+CI runs only for `v*` tags and manual dispatch (#5, #7); local checks are the PR and `main` gate (`docs/releasing.md`). Each failing step in `build.yml` is its own named step (format, Clippy, Rust tests, Python tests, packaging validation, smoke), and both smoke steps print and upload stdout, stderr, and the report on failure.
+
+Classification of the failures reported in LIT-27 for the predecessor repository (26 failed attempts out of 42, 17 distinct commits). The counts come from that issue and cannot be reproduced from this repository. They are run-level counts, not distinct bugs.
+
+| Class | Attempts | Status | Current evidence |
+| -- | -- | -- | -- |
+| Rust/Python test failures | 15 | Partly resolved; worker timing is pending | Windows path fixes landed (for example #10); worker-wait load sensitivity is tracked in LIT-21 and LIT-31 |
+| Native-window smoke failures | 5 | Diagnosable; cause not re-evaluated | Smoke steps retain stdout, stderr, and the report |
+| Formatting | 4 | Resolved as a diagnosis problem | Runs in tagged CI as its own step; local gate per `docs/releasing.md`; the historical failures predate the tag-only trigger |
+| Clippy | 1 | Same as formatting | Named step |
+| Coverage stage | 1 | Pending | Thresholds unchanged (80% lines for core and CLI, Linux only); the stage was already separate |
+
+Incident in this repository: the `v1.0.1` tag run [38666695292](https://github.com/luisblanco93/fastdiff/actions/runs/38666695292) failed on `helper_operation_metadata_is_shared_for_mixed_all` (`crates/fastdiff-cli/tests/protocol.rs`), a Git call-count assertion broken by the LIT-29 change (#9), and cost a retag (#12). Status: fixed in #12; the incidental-count class is pending in LIT-27 PR 3.
+
 ## Historical evidence (before this repository)
 
 The records below come from the project's earlier development history, when the product shipped as `diffcode`. They are retained for context and **do not validate any release of this repository**.
