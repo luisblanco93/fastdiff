@@ -171,7 +171,7 @@ jobs:
         run: |
           cargo fmt --all -- --check
           cargo clippy --workspace --all-targets --locked -- -D warnings
-          cargo test --workspace --locked
+          cargo test --workspace --locked --no-fail-fast
           python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Build release
         run: cargo build --release --locked --workspace

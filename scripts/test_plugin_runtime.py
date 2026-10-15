@@ -182,7 +182,8 @@ class PluginRuntimeTests(unittest.TestCase):
         self.assertEqual(receipt["platform"], "macos")
         launcher = Path(receipt["launcher"])
         self.assertEqual(launcher.name, "fastdiff")
-        self.assertEqual(launcher.stat().st_mode & 0o777, 0o755)
+        if os.name != "nt":
+            self.assertEqual(launcher.stat().st_mode & 0o777, 0o755)
         self.assertEqual(runtime.read_json(launcher.parent.parent / "build-info.json")["platform"], "macos-arm64")
         # A package built for another platform must never validate as the macOS app.
         linux = make_package(self.parent / "other", "linux")
