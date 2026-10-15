@@ -113,13 +113,13 @@ Windows runs use `--test-threads=2` in CI (`cargo test --workspace --locked -- -
 3. Keep path-location equivalence (short/long names, canonical prefixes, external Git directories) apart from textual contracts (raw Git bytes, serialized values, forwarded arguments). Normalize only the former.
 4. Each new test protects an identifiable risk; reuse existing coverage where it is sufficient. Do not spawn Git or processes for pure logic, but keep real integrations at the boundaries.
 5. Use explicit started/blocked/released/completed handshakes instead of sleeps. A watchdog timeout detects hangs, is not a performance budget, and reports the last state or event seen.
-6. Keep focused performance invariants such as avoiding extra Git work on unchanged state. Do not delete all call-count assertions, and do not assert incidental call order or command spelling.
+6. Keep focused performance invariants such as avoiding extra Git work on unchanged state. Do not delete all call-count assertions, and do not assert incidental call order or command spelling. Assert an exact count only when the number is the contract (0 means no work; at least 1 means the value must be queried again after a change). State every other count as an upper bound with a message, so an optimization does not fail the suite.
 7. Report the commands actually run, with versions and platform, and name every platform or check that was not run.
 8. When two agents work on one branch, agree who owns it and hand off with the commit, changed files, checks run, blockers, and the next step. Do not overwrite the other's work or repeat costly checks on an unchanged candidate.
 
 ### Suite protection map
 
-Initial suite-level map, to be refined as tests are consolidated (LIT-27 PR 3). When a test is deleted or merged, record the protected risk and the remaining executable protection in the pull request.
+Suite-level map. When a test is deleted or merged, record the protected risk and the remaining executable protection in the pull request. The `Arc::ptr_eq` and `as_ptr` assertions in `crates/fastdiff-gui/src/app/*_tests.rs` and `sidebar/tests.rs` are deliberate: they protect the guarantee that a refresh with unchanged data keeps the existing snapshot instead of rebuilding it.
 
 | Suite | Main risks protected |
 | -- | -- |
@@ -161,13 +161,13 @@ Classification of the failures reported in LIT-27 for the predecessor repository
 
 | Class | Attempts | Status | Current evidence |
 | -- | -- | -- | -- |
-| Rust/Python test failures | 15 | Partly resolved; worker timing is pending | Windows path fixes landed (for example #10); worker-wait load sensitivity is tracked in LIT-21 and LIT-31 |
-| Native-window smoke failures | 5 | Diagnosable; cause not re-evaluated | Smoke steps retain stdout, stderr, and the report |
+| Rust/Python test failures | 15 | Resolved in code; Windows stability not yet measured | Windows path fixes landed (for example #10); worker waits use the progress watchdog and handshakes (#13, #14); the 10-repetition native Windows check has not been run |
+| Native-window smoke failures | 5 | Diagnosable; no failure since | Smoke steps retain stdout, stderr, and the report; the 1.1.0 tagged run passed them |
 | Formatting | 4 | Resolved as a diagnosis problem | Runs in tagged CI as its own step; local gate per `docs/releasing.md`; the historical failures predate the tag-only trigger |
 | Clippy | 1 | Same as formatting | Named step |
-| Coverage stage | 1 | Pending | Thresholds unchanged (80% lines for core and CLI, Linux only); the stage was already separate |
+| Coverage stage | 1 | No change needed | Thresholds unchanged (80% lines for core and CLI, Linux only); the stage is separate and passed in the 1.1.0 tagged run |
 
-Incident in this repository: the `v1.0.1` tag run [38666695292](https://github.com/luisblanco93/fastdiff/actions/runs/38666695292) failed on `helper_operation_metadata_is_shared_for_mixed_all` (`crates/fastdiff-cli/tests/protocol.rs`), a Git call-count assertion broken by the LIT-29 change (#9), and cost a retag (#12). Status: fixed in #12; the incidental-count class is pending in LIT-27 PR 3.
+Incident in this repository: the `v1.0.1` tag run [38666695292](https://github.com/luisblanco93/fastdiff/actions/runs/38666695292) failed on `helper_operation_metadata_is_shared_for_mixed_all` (`crates/fastdiff-cli/tests/protocol.rs`), a Git call-count assertion broken by the LIT-29 change (#9), and cost a retag (#12). Status: fixed in #12; the remaining count assertions in `protocol.rs` now state upper bounds, with exact counts kept only where the number is the contract.
 
 ## Historical evidence (before this repository)
 
