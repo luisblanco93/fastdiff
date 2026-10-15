@@ -11,7 +11,7 @@ use crate::{
 use egui::{Color32, FontId, Layout, RichText, TextFormat, text::LayoutJob};
 use fastdiff_core::RowKind;
 
-const SELECTION_COLOR: Color32 = Color32::from_rgb(55, 78, 115);
+pub(super) const SELECTION_COLOR: Color32 = Color32::from_rgb(55, 78, 115);
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_row(

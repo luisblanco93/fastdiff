@@ -34,7 +34,7 @@ fn search_hits_highlight_whole_lines_and_clear_with_results() {
             .iter()
             .filter(|shape| {
                 matches!(&shape.shape, egui::Shape::Rect(rect)
-                if rect.fill == egui::Color32::from_rgb(55, 78, 115)
+                if rect.fill == cells::SELECTION_COLOR
                     && rect.rect.width() > 300.0)
             })
             .count()
