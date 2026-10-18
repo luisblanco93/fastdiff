@@ -11,6 +11,9 @@ use std::{sync::Arc, thread::JoinHandle, time::Duration};
 
 const TAB_ROW_HEIGHT: f32 = 32.0;
 const TAB_ICON_SIZE: f32 = 11.0;
+/// Space between the tab name and its close control; with the control's own padding the ✕ sits
+/// as far from the name as from the tab's right edge.
+const TAB_CLOSE_GAP: f32 = 8.0;
 /// Breathing room above and below the toolbar rows, as in the approved design.
 const TOOLBAR_TOP_GAP: f32 = 3.0;
 const TOOLBAR_PANEL_BOTTOM_MARGIN: i8 = 6;
@@ -1130,6 +1133,7 @@ impl Fastdiff {
                         act(TabAction::Select);
                     }
                 }
+                ui.add_space(TAB_CLOSE_GAP);
                 let response = ui.add_sized([24.0, 24.0], egui::Button::new("").frame(false));
                 let close_label = format!("Close {name} tab");
                 response.widget_info(|| {
