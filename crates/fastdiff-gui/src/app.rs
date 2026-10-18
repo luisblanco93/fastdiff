@@ -9,6 +9,44 @@ use fastdiff_cli::{IpcServer, OpenRequest, OpenTarget};
 use fastdiff_core::{FileChange, GitPath, ReflogList, ReflogRequest, RowKind, View};
 use std::{sync::Arc, thread::JoinHandle, time::Duration};
 
+const TAB_ROW_HEIGHT: f32 = 32.0;
+const TAB_ICON_SIZE: f32 = 11.0;
+/// Breathing room above and below the toolbar rows, as in the approved design.
+const TOOLBAR_TOP_GAP: f32 = 3.0;
+const TOOLBAR_PANEL_BOTTOM_MARGIN: i8 = 6;
+const SIDEBAR_TOP_GAP: f32 = 6.0;
+const BRANCH_LABEL_MAX_WIDTH: f32 = 360.0;
+/// Below this width the toolbar breaks into two rows; egui cannot wrap widget groups.
+const TWO_ROW_TOOLBAR_WIDTH: f32 = 620.0;
+
+struct TabView<'a> {
+    title: &'a str,
+    name: &'a str,
+    folder: Option<&'a str>,
+    selected: bool,
+    is_document: bool,
+    reveal: bool,
+}
+
+enum TabAction {
+    Select,
+    Close,
+}
+
+fn tab_name(title: &str) -> &str {
+    title
+        .trim_end_matches(['/', '\\'])
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(title)
+}
+
+fn tab_parent(title: &str) -> Option<&str> {
+    let trimmed = title.trim_end_matches(['/', '\\']);
+    let parent = trimmed.rsplit_once(['/', '\\'])?.0;
+    Some(tab_name(parent)).filter(|name| !name.is_empty())
+}
+
 mod reflog;
 #[cfg(test)]
 mod reflog_paging_tests;
@@ -738,12 +776,20 @@ impl Fastdiff {
     pub fn show(&mut self, context: &egui::Context) {
         self.benchmark.rendered(false);
         self.shortcuts(context);
-        egui::TopBottomPanel::top("toolbar").show(context, |ui| {
-            self.tab_bar(ui);
-            if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
-                Self::toolbar(tab, ui, &mut self.help_open, &mut self.preferences.unified);
-            }
+        let top_frame = egui::Frame::side_top_panel(&context.style()).inner_margin(egui::Margin {
+            left: 8,
+            right: 8,
+            top: 2,
+            bottom: TOOLBAR_PANEL_BOTTOM_MARGIN,
         });
+        egui::TopBottomPanel::top("toolbar")
+            .frame(top_frame)
+            .show(context, |ui| {
+                self.tab_bar(ui);
+                if let Some(tab) = self.tabs.get_mut(self.selected_tab) {
+                    Self::toolbar(tab, ui);
+                }
+            });
         if self.tabs.is_empty() {
             context.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
@@ -755,7 +801,7 @@ impl Fastdiff {
                     && let Some(branch) = &tab.branch
                 {
                     ui.scope(|ui| {
-                        ui.spacing_mut().item_spacing.x = 3.0;
+                        ui.spacing_mut().item_spacing.x = 6.0;
                         let (rect, _) =
                             ui.allocate_exact_size(egui::vec2(10.0, 18.0), egui::Sense::hover());
                         let stroke = egui::Stroke::new(1.0, ui.visuals().text_color());
@@ -775,13 +821,27 @@ impl Fastdiff {
                             ui.painter()
                                 .circle(center, 1.4, ui.visuals().panel_fill, stroke);
                         }
-                        ui.add_sized(
-                            [180.0_f32.min(ui.available_width() * 0.4), 18.0],
-                            egui::Label::new(egui::RichText::new(branch))
-                                .truncate()
-                                .halign(egui::Align::Min),
-                        )
-                        .on_hover_text(branch);
+                        // A truncated label already shows the full name on hover.
+                        // add_sized would center the text; a left-to-right child keeps it at the glyph.
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(
+                                BRANCH_LABEL_MAX_WIDTH.min(ui.available_width() * 0.5),
+                                18.0,
+                            ),
+                            // Main-justified: the label's hit area spans the whole box, so a drag
+                            // can start anywhere beside the name instead of exactly on the text.
+                            egui::Layout::left_to_right(egui::Align::Center)
+                                .with_main_align(egui::Align::Min)
+                                .with_main_justify(true),
+                            |ui| {
+                                // Selectable so the branch name can be copied.
+                                ui.add(
+                                    egui::Label::new(egui::RichText::new(branch))
+                                        .truncate()
+                                        .halign(egui::Align::Min),
+                                )
+                            },
+                        );
                     });
                 }
                 if tab.loading {
@@ -811,7 +871,8 @@ impl Fastdiff {
                         ))
                         .small(),
                     )
-                    .truncate(),
+                    .truncate()
+                    .selectable(false),
                 )
                 .on_hover_text(format!("{}\n{hints}", tab.root));
                 if hint_width > 0.0 {
@@ -830,16 +891,7 @@ impl Fastdiff {
                 });
         }
         egui::CentralPanel::default().show(context, |ui| {
-            let path = if tab.request.target == OpenTarget::Document {
-                Some(tab.request.repository.clone())
-            } else {
-                tab.selected.as_ref().map(GitPath::display)
-            };
-            if let Some(path) = path {
-                ui.add(egui::Label::new(egui::RichText::new(&path).monospace()).truncate())
-                    .on_hover_text(&path);
-                ui.separator();
-            }
+            Self::path_row(tab, ui, &mut self.preferences.unified);
             if let Some(notice) = &tab.notice {
                 ui.label(notice);
             }
@@ -917,153 +969,64 @@ impl Fastdiff {
             data.insert_temp(selection_id, selection);
             previous != Some(selection)
         });
+        let titles: Vec<&str> = self
+            .tabs
+            .iter()
+            .map(|tab| {
+                if tab.request.target == OpenTarget::Document {
+                    tab.request.repository.as_str()
+                } else {
+                    tab.root.as_str()
+                }
+            })
+            .collect();
         let mut close = None;
-        egui::ScrollArea::horizontal()
-            .id_salt("repository-tabs")
-            .auto_shrink([false, true])
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    for (index, tab) in self.tabs.iter().enumerate() {
-                        let title = if tab.request.target == OpenTarget::Document {
-                            &tab.request.repository
-                        } else {
-                            &tab.root
-                        };
-                        let name = title
-                            .trim_end_matches(['/', '\\'])
-                            .rsplit(['/', '\\'])
-                            .next()
-                            .unwrap_or(title);
-                        let selected = index == self.selected_tab;
-                        let fill = if selected {
-                            ui.visuals().widgets.noninteractive.weak_bg_fill
-                        } else {
-                            egui::Color32::TRANSPARENT
-                        };
-                        let frame = egui::Frame::new()
-                            .fill(fill)
-                            .corner_radius(egui::CornerRadius {
-                                nw: 4,
-                                ne: 4,
-                                sw: 0,
-                                se: 0,
-                            })
-                            .inner_margin(egui::Margin::symmetric(8, 4))
-                            .show(ui, |ui| {
-                                let font = egui::TextStyle::Button.resolve(ui.style());
-                                let width = ui
-                                    .painter()
-                                    .layout_no_wrap(
-                                        name.to_owned(),
-                                        font,
-                                        ui.visuals().text_color(),
-                                    )
-                                    .size()
-                                    .x
-                                    .clamp(48.0, 180.0);
-                                let label = egui::RichText::new(name).color(if selected {
-                                    ui.visuals().strong_text_color()
-                                } else {
-                                    ui.visuals().text_color()
-                                });
-                                let response = ui.add_sized(
-                                    [width, 24.0],
-                                    egui::Button::new(label).frame(false).truncate(),
-                                );
-                                response.widget_info(|| {
-                                    egui::WidgetInfo::selected(
-                                        egui::WidgetType::SelectableLabel,
-                                        ui.is_enabled(),
-                                        selected,
-                                        name,
-                                    )
-                                });
-                                ui.ctx().accesskit_node_builder(response.id, |node| {
-                                    node.set_role(egui::accesskit::Role::Tab);
-                                    node.clear_toggled();
-                                    node.set_selected(selected);
-                                });
-                                if response.has_focus() {
-                                    ui.painter().rect_stroke(
-                                        response.rect,
-                                        2.0,
-                                        ui.visuals().selection.stroke,
-                                        egui::StrokeKind::Inside,
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), TAB_ROW_HEIGHT),
+            egui::Layout::right_to_left(egui::Align::Center),
+            |ui| {
+                Self::global_controls(ui, &mut self.help_open);
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    egui::ScrollArea::horizontal()
+                        .id_salt("repository-tabs")
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing.x = 0.0;
+                                for (index, tab) in self.tabs.iter().enumerate() {
+                                    let title = titles[index];
+                                    let name = tab_name(title);
+                                    let folder = titles
+                                        .iter()
+                                        .enumerate()
+                                        .any(|(other, other_title)| {
+                                            other != index && tab_name(other_title) == name
+                                        })
+                                        .then(|| tab_parent(title))
+                                        .flatten();
+                                    let selected = index == self.selected_tab;
+                                    let is_document = tab.request.target == OpenTarget::Document;
+                                    Self::tab(
+                                        ui,
+                                        TabView {
+                                            title,
+                                            name,
+                                            folder,
+                                            selected,
+                                            is_document,
+                                            reveal: selected && reveal_selected,
+                                        },
+                                        |action| match action {
+                                            TabAction::Select => self.selected_tab = index,
+                                            TabAction::Close => close = Some(index),
+                                        },
                                     );
-                                }
-                                if response.on_hover_text(title).clicked() {
-                                    self.selected_tab = index;
-                                }
-                                let response =
-                                    ui.add_sized([24.0, 24.0], egui::Button::new("").frame(false));
-                                let close_label = format!("Close {name} tab");
-                                response.widget_info(|| {
-                                    egui::WidgetInfo::labeled(
-                                        egui::WidgetType::Button,
-                                        ui.is_enabled(),
-                                        &close_label,
-                                    )
-                                });
-                                if response.has_focus() {
-                                    ui.painter().rect_stroke(
-                                        response.rect,
-                                        2.0,
-                                        ui.visuals().selection.stroke,
-                                        egui::StrokeKind::Inside,
-                                    );
-                                }
-                                let center = response.rect.center();
-                                let stroke = egui::Stroke::new(
-                                    1.2,
-                                    if response.hovered() {
-                                        ui.visuals().strong_text_color()
-                                    } else {
-                                        ui.visuals().text_color()
-                                    },
-                                );
-                                for (a, b) in
-                                    [((-3.0, -3.0), (3.0, 3.0)), ((-3.0, 3.0), (3.0, -3.0))]
-                                {
-                                    ui.painter().line_segment(
-                                        [
-                                            center + egui::vec2(a.0, a.1),
-                                            center + egui::vec2(b.0, b.1),
-                                        ],
-                                        stroke,
-                                    );
-                                }
-                                if response.on_hover_text(close_label).clicked() {
-                                    close = Some(index);
                                 }
                             });
-                        if selected {
-                            if reveal_selected {
-                                frame.response.scroll_to_me(Some(egui::Align::Center));
-                            }
-                            ui.painter().line_segment(
-                                [
-                                    frame.response.rect.left_bottom(),
-                                    frame.response.rect.right_bottom(),
-                                ],
-                                egui::Stroke::new(2.0, ui.visuals().selection.stroke.color),
-                            );
-                        }
-                    }
-                    ui.add_space(12.0);
-                    ui.separator();
-                    ui.add_space(12.0);
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new(
-                                "Current Git changes, including pre-existing edits",
-                            )
-                            .small(),
-                        )
-                        .truncate(),
-                    );
+                        });
                 });
-            });
+            },
+        );
         ui.separator();
         if let Some(index) = close {
             self.close_tab(index);
@@ -1072,127 +1035,338 @@ impl Fastdiff {
         }
     }
 
-    fn toolbar(tab: &mut ReviewTab, ui: &mut egui::Ui, help_open: &mut bool, unified: &mut bool) {
-        ui.horizontal_wrapped(|ui| {
-            let search_label = if tab.document_mode {
-                "Search document"
-            } else {
-                "Search diff"
-            };
-            let item_spacing = ui.spacing().item_spacing.x;
-            ui.spacing_mut().item_spacing.x = 1.0;
-            let response = ui.add(
-                egui::TextEdit::singleline(&mut tab.search)
-                    .id(egui::Id::new("diff-search"))
-                    .hint_text(search_label)
-                    .return_key(None)
-                    .desired_width(150.0_f32.min(ui.available_width().max(40.0))),
-            );
-            response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), search_label)
-            });
-            if response.changed() {
-                tab.clear_search_results();
-                tab.request_search();
-            }
-            if response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
-                tab.navigate_search(!ui.input(|input| input.modifiers.shift));
-            }
-            if search_arrow(ui, true, "Previous match", "Previous match (Shift+F3)").clicked() {
-                tab.navigate_search(false);
-            }
-            ui.spacing_mut().item_spacing.x = item_spacing;
-            if search_arrow(ui, false, "Next match", "Next match (F3)").clicked() {
-                tab.navigate_search(true);
-            }
-            if !tab.search.is_empty() {
-                ui.small(format!("{} matches", tab.search_hits.len()));
-            }
-            if tab.has_repository
-                || tab.selected.is_some()
-                || tab.request.target == OpenTarget::Document
-            {
-                ui.separator();
-                if ui
-                    .add_enabled(
-                        tab.full_available
-                            && (tab.selected.is_some()
-                                || tab.request.target == OpenTarget::Document),
-                        egui::Button::selectable(tab.document_mode, "Full file"),
-                    )
-                    .clicked()
-                {
-                    tab.toggle_document(true);
+    fn tab(ui: &mut egui::Ui, view: TabView, mut act: impl FnMut(TabAction)) {
+        let TabView {
+            title,
+            name,
+            folder,
+            selected,
+            is_document,
+            reveal,
+        } = view;
+        let fill = if selected {
+            ui.visuals().widgets.inactive.weak_bg_fill
+        } else {
+            egui::Color32::TRANSPARENT
+        };
+        let frame = egui::Frame::new()
+            .fill(fill)
+            .corner_radius(egui::CornerRadius {
+                nw: 4,
+                ne: 4,
+                sw: 0,
+                se: 0,
+            })
+            .inner_margin(egui::Margin::symmetric(8, 4))
+            .show(ui, |ui| {
+                // Allocate the full label height so the icon centers on the name.
+                let (slot, icon_response) =
+                    ui.allocate_exact_size(egui::vec2(TAB_ICON_SIZE, 24.0), egui::Sense::click());
+                if icon_response.clicked() {
+                    act(TabAction::Select);
                 }
-                if ui
-                    .add_enabled(
-                        tab.has_repository,
-                        egui::Button::selectable(!tab.document_mode, "Git Diff"),
-                    )
-                    .clicked()
-                {
-                    tab.toggle_document(false);
+                let icon =
+                    egui::Rect::from_center_size(slot.center(), egui::Vec2::splat(TAB_ICON_SIZE));
+                let icon_color = if selected {
+                    ui.visuals().selection.stroke.color
+                } else {
+                    ui.visuals().weak_text_color()
+                };
+                if is_document {
+                    crate::sidebar::document_icon(ui, icon, icon_color);
+                } else {
+                    crate::sidebar::folder_icon(ui, icon, false, icon_color);
                 }
-            }
-            if tab.has_repository {
-                ui.separator();
-                for (label, view) in [
-                    ("All", View::All),
-                    ("Unstaged", View::Unstaged),
-                    ("Staged", View::Staged),
-                    ("Unpushed", View::Unpushed),
-                ] {
-                    let response = ui.add_enabled(
-                        !tab.document_mode,
-                        egui::Button::selectable(tab.view == view, label),
+                ui.add_space(4.0);
+                let font = egui::TextStyle::Button.resolve(ui.style());
+                let width = ui
+                    .painter()
+                    .layout_no_wrap(name.to_owned(), font, ui.visuals().text_color())
+                    .size()
+                    .x
+                    .clamp(48.0, 180.0);
+                let label = egui::RichText::new(name).color(if selected {
+                    ui.visuals().strong_text_color()
+                } else {
+                    ui.visuals().text_color()
+                });
+                let response = ui.add_sized(
+                    [width, 24.0],
+                    egui::Button::new(label).frame(false).truncate(),
+                );
+                response.widget_info(|| {
+                    egui::WidgetInfo::selected(
+                        egui::WidgetType::SelectableLabel,
+                        ui.is_enabled(),
+                        selected,
+                        name,
+                    )
+                });
+                ui.ctx().accesskit_node_builder(response.id, |node| {
+                    node.set_role(egui::accesskit::Role::Tab);
+                    node.clear_toggled();
+                    node.set_selected(selected);
+                });
+                if response.has_focus() {
+                    ui.painter().rect_stroke(
+                        response.rect,
+                        2.0,
+                        ui.visuals().selection.stroke,
+                        egui::StrokeKind::Inside,
                     );
-                    let response = if view == View::All {
-                        response.on_hover_text(
-                            "Unpushed commits, staged edits, unstaged edits, and untracked files",
-                        )
-                    } else {
-                        response
-                    };
-                    if response.clicked() {
-                        tab.set_view(view);
+                }
+                let tab_hovered = response.hovered();
+                if response.on_hover_text(title).clicked() {
+                    act(TabAction::Select);
+                }
+                if let Some(folder) = folder {
+                    ui.add_space(2.0);
+                    let suffix = ui.add(
+                        egui::Label::new(egui::RichText::new(folder).small().weak())
+                            .selectable(false)
+                            .sense(egui::Sense::click()),
+                    );
+                    if suffix.clicked() {
+                        act(TabAction::Select);
                     }
                 }
-            }
-            ui.separator();
-            Self::copy_menu(tab, ui);
-            if ui
-                .add_enabled(
-                    !tab.document_mode,
-                    egui::Button::new(if *unified { "Side by side" } else { "Unified" }),
-                )
-                .on_hover_text(shortcuts::binding_label(
-                    "Switch diff layout (Ctrl+Shift+U)",
-                ))
-                .clicked()
-            {
-                *unified = !*unified;
-            }
-            let layout = if tab.presentation.as_ref().is_some_and(|p| p.unified) {
-                "Unified"
-            } else {
-                "Side by side"
-            };
-            ui.small(format!("Layout: {layout}"));
-            ui.separator();
-            let zoom = ui.ctx().zoom_factor();
-            for (label, delta) in [("UI −", -0.1), ("UI +", 0.1)] {
-                if ui
-                    .small_button(label)
-                    .on_hover_text("Scale the whole interface")
-                    .clicked()
-                {
-                    ui.ctx().set_zoom_factor((zoom + delta).clamp(0.75, 2.0));
+                let response = ui.add_sized([24.0, 24.0], egui::Button::new("").frame(false));
+                let close_label = format!("Close {name} tab");
+                response.widget_info(|| {
+                    egui::WidgetInfo::labeled(
+                        egui::WidgetType::Button,
+                        ui.is_enabled(),
+                        &close_label,
+                    )
+                });
+                if response.has_focus() {
+                    ui.painter().rect_stroke(
+                        response.rect,
+                        2.0,
+                        ui.visuals().selection.stroke,
+                        egui::StrokeKind::Inside,
+                    );
                 }
+                let center = response.rect.center();
+                let color = if response.hovered() {
+                    ui.visuals().strong_text_color()
+                } else if selected || tab_hovered {
+                    ui.visuals().text_color()
+                } else {
+                    ui.visuals().weak_text_color()
+                };
+                let stroke = egui::Stroke::new(1.2, color);
+                for (a, b) in [((-3.0, -3.0), (3.0, 3.0)), ((-3.0, 3.0), (3.0, -3.0))] {
+                    ui.painter().line_segment(
+                        [center + egui::vec2(a.0, a.1), center + egui::vec2(b.0, b.1)],
+                        stroke,
+                    );
+                }
+                if response.on_hover_text(close_label).clicked() {
+                    act(TabAction::Close);
+                }
+            });
+        if selected {
+            if reveal {
+                frame.response.scroll_to_me(Some(egui::Align::Center));
             }
-            if ui.small_button("Help").clicked() {
-                *help_open = true;
+            ui.painter().line_segment(
+                [
+                    frame.response.rect.left_bottom(),
+                    frame.response.rect.right_bottom(),
+                ],
+                egui::Stroke::new(2.0, ui.visuals().selection.stroke.color),
+            );
+        }
+    }
+
+    /// Window-wide controls: they apply to every tab, so they sit beside the tabs, not in a tab's toolbar.
+    /// Called inside a right-to-left layout, so the widgets are added in reverse visual order.
+    fn global_controls(ui: &mut egui::Ui, help_open: &mut bool) {
+        if ui.small_button("Help").clicked() {
+            *help_open = true;
+        }
+        let zoom = ui.ctx().zoom_factor();
+        if ui
+            .small_button("UI +")
+            .on_hover_text("Scale the whole interface")
+            .clicked()
+        {
+            ui.ctx().set_zoom_factor((zoom + 0.1).clamp(0.75, 2.0));
+        }
+        ui.small(format!("{:.0}%", zoom * 100.0));
+        if ui
+            .small_button("UI −")
+            .on_hover_text("Scale the whole interface")
+            .clicked()
+        {
+            ui.ctx().set_zoom_factor((zoom - 0.1).clamp(0.75, 2.0));
+        }
+    }
+
+    fn toolbar(tab: &mut ReviewTab, ui: &mut egui::Ui) {
+        ui.add_space(TOOLBAR_TOP_GAP);
+        if ui.available_width() >= TWO_ROW_TOOLBAR_WIDTH {
+            ui.horizontal(|ui| {
+                Self::search_controls(tab, ui);
+                Self::mode_controls(tab, ui);
+                Self::view_controls(tab, ui, true);
+            });
+        } else {
+            // Last-resort per-widget wrapping for very high UI zoom on the narrowest window.
+            ui.horizontal_wrapped(|ui| {
+                Self::search_controls(tab, ui);
+                Self::mode_controls(tab, ui);
+            });
+            if tab.has_repository {
+                ui.horizontal_wrapped(|ui| Self::view_controls(tab, ui, false));
             }
+        }
+    }
+
+    fn search_controls(tab: &mut ReviewTab, ui: &mut egui::Ui) {
+        // The field and its arrows sit 1px apart; the scope keeps the normal gap after them.
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing.x = 1.0;
+            Self::search_field(tab, ui);
         });
+        if !tab.search.is_empty() {
+            ui.small(format!("{} matches", tab.search_hits.len()));
+        }
+    }
+
+    fn search_field(tab: &mut ReviewTab, ui: &mut egui::Ui) {
+        let search_label = if tab.document_mode {
+            "Search document"
+        } else {
+            "Search diff"
+        };
+        let response = ui.add(
+            egui::TextEdit::singleline(&mut tab.search)
+                .id(egui::Id::new("diff-search"))
+                .hint_text(search_label)
+                .return_key(None)
+                .desired_width(150.0_f32.min(ui.available_width().max(40.0))),
+        );
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), search_label)
+        });
+        if response.changed() {
+            tab.clear_search_results();
+            tab.request_search();
+        }
+        if response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+            tab.navigate_search(!ui.input(|input| input.modifiers.shift));
+        }
+        if search_arrow(ui, true, "Previous match", "Previous match (Shift+F3)").clicked() {
+            tab.navigate_search(false);
+        }
+        if search_arrow(ui, false, "Next match", "Next match (F3)").clicked() {
+            tab.navigate_search(true);
+        }
+    }
+
+    fn mode_controls(tab: &mut ReviewTab, ui: &mut egui::Ui) {
+        if !(tab.has_repository
+            || tab.selected.is_some()
+            || tab.request.target == OpenTarget::Document)
+        {
+            return;
+        }
+        ui.separator();
+        if ui
+            .add_enabled(
+                tab.full_available
+                    && (tab.selected.is_some() || tab.request.target == OpenTarget::Document),
+                egui::Button::selectable(tab.document_mode, "Full file"),
+            )
+            .clicked()
+        {
+            tab.toggle_document(true);
+        }
+        if ui
+            .add_enabled(
+                tab.has_repository,
+                egui::Button::selectable(!tab.document_mode, "Git Diff"),
+            )
+            .clicked()
+        {
+            tab.toggle_document(false);
+        }
+    }
+
+    fn view_controls(tab: &mut ReviewTab, ui: &mut egui::Ui, leading_separator: bool) {
+        if !tab.has_repository {
+            return;
+        }
+        if leading_separator {
+            ui.separator();
+        }
+        for (label, view) in [
+            ("All", View::All),
+            ("Unstaged", View::Unstaged),
+            ("Staged", View::Staged),
+            ("Unpushed", View::Unpushed),
+        ] {
+            let response = ui.add_enabled(
+                !tab.document_mode,
+                egui::Button::selectable(tab.view == view, label),
+            );
+            let response = if view == View::All {
+                response.on_hover_text(
+                    "Unpushed commits, staged edits, unstaged edits, and untracked files",
+                )
+            } else {
+                response
+            };
+            if response.clicked() {
+                tab.set_view(view);
+            }
+        }
+    }
+
+    /// Selected file or document path with the actions that apply to it. Always rendered so Copy
+    /// and the layout choice stay in one place.
+    fn path_row(tab: &mut ReviewTab, ui: &mut egui::Ui, unified: &mut bool) {
+        let path = if tab.request.target == OpenTarget::Document {
+            Some(tab.request.repository.clone())
+        } else {
+            tab.selected.as_ref().map(GitPath::display)
+        };
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+            egui::Layout::right_to_left(egui::Align::Center),
+            |ui| {
+                Self::copy_menu(tab, ui);
+                ui.add_enabled_ui(!tab.document_mode, |ui| {
+                    for (label, value) in [("Unified", true), ("Side by side", false)] {
+                        if ui
+                            .add(egui::Button::selectable(*unified == value, label))
+                            .on_hover_text(shortcuts::binding_label(
+                                "Diff layout for all tabs (Ctrl+Shift+U)",
+                            ))
+                            .clicked()
+                        {
+                            *unified = value;
+                        }
+                    }
+                });
+                let path_layout = egui::Layout::left_to_right(egui::Align::Center)
+                    .with_main_align(egui::Align::Min)
+                    .with_main_justify(true);
+                ui.with_layout(path_layout, |ui| {
+                    if let Some(path) = &path {
+                        ui.add(
+                            egui::Label::new(egui::RichText::new(path).monospace())
+                                .truncate()
+                                .halign(egui::Align::Min),
+                        )
+                        .on_hover_text(path);
+                    }
+                });
+            },
+        );
+        ui.separator();
     }
 
     fn copy_menu(tab: &mut ReviewTab, ui: &mut egui::Ui) {
@@ -1287,6 +1461,7 @@ impl Fastdiff {
             return;
         }
         ui.shrink_clip_rect(ui.available_rect_before_wrap());
+        ui.add_space(SIDEBAR_TOP_GAP);
         let previous_filter = tab.filter.clone();
         let selected = tab.tree.show(
             ui,

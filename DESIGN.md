@@ -68,7 +68,7 @@ components:
     padding: "4px 8px"
     height: "24px"
   tab-active:
-    backgroundColor: "{colors.chrome-panel}"
+    backgroundColor: "{colors.chrome-control}"
     textColor: "{colors.chrome-strong}"
     rounded: "{rounded.tab}"
     padding: "4px 8px"
@@ -159,8 +159,8 @@ A neutral gray chrome frame around a cool-slate code surface, with desaturated m
 - **Slate Ink** (#181B21): Context rows and the code surface.
 - **Paper Mist** (#D5DCE6): Source text.
 - **Gutter Fog** (#757F8F): Line numbers and diff markers.
-- **Chrome Panel** (#1B1B1B): Panels, toolbar, status bar, active tab.
-- **Chrome Control** (#3C3C3C) / **Chrome Hover** (#464646): Control fill at rest and on hover; also hairlines.
+- **Chrome Panel** (#1B1B1B): Panels, toolbar, status bar.
+- **Chrome Control** (#3C3C3C) / **Chrome Hover** (#464646): Control fill at rest and on hover; also hairlines and the active-tab fill.
 - **Chrome Text** (#8C8C8C) / **Chrome Button Text** (#B4B4B4) / **Chrome Strong** (#FFFFFF): Labels and status text, button and tree-row text, and emphasized text.
 - **Chrome Selection** (#005C80) / **Chrome Focus** (#C0DEFF): Selected control or tree row fill, and the focus ring and active-tab underline.
 
@@ -184,7 +184,7 @@ A neutral gray chrome frame around a cool-slate code surface, with desaturated m
 - **Source** (400, 13px default, 18px row): Diff and document text. User-adjustable with Ctrl+- / Ctrl++; row height is font size + 5.
 - **Body** (300, 12.5px): Buttons, tabs, tree labels, status text, notices.
 - **Heading** (300, 18px): Reserved by egui; not used in the main shell.
-- **Label** (300, 9px): Small hints, match counts, layout status, key hints.
+- **Label** (300, 9px): Small hints, match counts, duplicate-tab folder names, key hints.
 - **Path / shortcut** (monospace, text-style size): The selected file path above the content and bindings in Help.
 
 ### Named Rules
@@ -194,13 +194,15 @@ A neutral gray chrome frame around a cool-slate code surface, with desaturated m
 
 ## Layout
 
-A single-window shell: tab strip and wrapping toolbar on top, a resizable left sidebar, a central diff or document, and a status bar below. The window opens at 1100×720 and will not shrink below 640×400.
+A single-window shell: tab strip (tabs left, window-wide UI scale and Help right) and toolbar on top, a resizable left sidebar, a central diff or document, and a status bar below. The window opens at 1100×720 and will not shrink below 640×400.
 
 - **Sidebar:** 260px by default, 140px minimum, capped at 40% of window width. Holds the filename filter, the changed-file tree, and the collapsible Reflog (40% of sidebar height when open, drag-resizable).
 - **Rhythm:** interactive rows are 24px (tabs, tree rows, tab close targets); Reflog rows are 22px; item spacing is egui's 8×3.
 - **Diff:** both panes share one vertical scroll position; each pane scrolls long lines horizontally with a fixed 64px gutter. Below 640px of diff width side-by-side becomes unified; it returns at 680px.
 - **Context folding:** unchanged runs longer than 8 lines collapse to 3 lines at each edge plus a fold row.
-- **Density:** compact by default; the toolbar wraps rather than hiding controls.
+- **Toolbar rows:** one row from 620px of width; below that, search and Full file / Git Diff on the first row and the Git views on the second. egui cannot wrap widget groups, so the break is an explicit threshold.
+- **Path row:** above the content, the selected path (truncated) at the left, Side by side | Unified and Copy at the right. It is always shown.
+- **Density:** compact by default; controls are reflowed, never hidden.
 
 ## Elevation & Depth
 
@@ -211,7 +213,7 @@ Flat by default. Depth comes from 1px hairlines between regions and from tonal f
 
 ## Shapes
 
-Near-square. Controls and focus rings use a 2px radius, tree rows 3px, window and menus 6px. Tabs round only their top corners (4px) and sit on a 2px underline when active. Icons are drawn as simple outlines (folder, document, disclosure triangle, branch glyph); with `--theme` they become bundled Material icons.
+Near-square. Controls and focus rings use a 2px radius, tree rows 3px, window and menus 6px. Tabs round only their top corners (4px) and sit on a 2px underline when active. Icons are drawn as simple outlines (folder, document, disclosure triangle, branch glyph in the status bar only); with `--theme` they become bundled Material icons.
 
 ## Components
 
@@ -219,16 +221,18 @@ Compact and utilitarian: small, unadorned, every state legible.
 
 ### Tabs
 - **Shape:** top corners 4px, flat bottom, 24px label height with 8×4px padding.
-- **Default:** transparent, Chrome Text label, truncated between 48px and 180px.
-- **Active:** Chrome Panel fill, Chrome Strong label, 2px Chrome Focus underline.
-- **Close:** a drawn ✕ inside a 24px target; brightens on hover. Focus draws a 2px-radius ring.
+- **Identity:** an 11px drawn icon before the name: folder for a repository, document for a file. Tabs never show the branch (names can be very long); the branch stays in the status bar.
+- **Default:** transparent, Chrome Text label, truncated between 48px and 180px. Tabs with the same name add the parent folder in small weak text.
+- **Active:** Chrome Control fill, Chrome Strong label, Chrome Focus icon, 2px Chrome Focus underline.
+- **Close:** a drawn ✕ inside a 24px target, always present; weak on inactive tabs until hovered, then brightens. Focus draws a 2px-radius ring.
+- **Window controls:** UI −, zoom percentage, UI +, and Help sit at the right end of the tab row.
 
 ### Toolbar buttons
-- **Shape:** 2px radius, 18px high (egui's default control height), Chrome Control fill.
-- **Selected (Full file / Git Diff / All / Unstaged / Staged / Unpushed):** Chrome Selection fill with Chrome Focus label.
+- **Shape:** 2px radius. Plain buttons (Copy, search arrows) have a Chrome Control fill; the Full file / Git Diff, Git view and layout choices are frameless until selected.
+- **Selected (Full file / Git Diff / All / Unstaged / Staged / Unpushed / Side by side / Unified):** Chrome Selection fill with Chrome Focus label.
 - **Disabled:** dimmed; Git filters are disabled in Full file mode.
 - **Search arrows:** Previous / Next match, 20px, drawn as up/down chevrons (egui's default fonts have no arrow glyphs) and flush against the search field with a 1px gap.
-- **Small buttons:** UI − / UI +, Help use the small style.
+- **Small buttons:** UI − / UI +, Help use egui's small style (about 15px high).
 
 ### File tree rows
 - **Style:** 24px rows, 16px indent per level, disclosure triangle for folders, icon, label truncated with an ellipsis, right-aligned status badge.
@@ -246,7 +250,7 @@ Compact and utilitarian: small, unadorned, every state legible.
 - **Focus:** Chrome Focus ring.
 
 ### Status bar
-- **Style:** small text; branch glyph and name (max 180px), spinner while loading, changed-file count and root, key hints only at 900px or wider.
+- **Style:** small text; branch glyph and name (max 360px or half the window), spinner while loading, changed-file count and root, key hints only at 900px or wider.
 
 ## Do's and Don'ts
 

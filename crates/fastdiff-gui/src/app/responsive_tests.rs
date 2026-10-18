@@ -123,11 +123,24 @@ fn narrow_toolbar_keeps_controls_and_filter_inside_window() {
             "Previous match",
             "Next match",
             "Search diff",
+            "Full file",
+            "Git Diff",
+            "All",
+            "Unstaged",
+            "Staged",
+            "Unpushed",
+            "Side by side",
             "Unified",
+            "Copy",
+            "100%",
             "UI −",
             "UI +",
         ] {
-            let rect = harness.get_by_label(label).rect();
+            let rect = harness
+                .query_all_by_label(label)
+                .map(|node| node.rect())
+                .next()
+                .unwrap_or_else(|| panic!("{label}"));
             assert!(
                 rect.left() >= 0.0 && rect.right() <= width,
                 "{label}: {rect:?}"
@@ -451,7 +464,10 @@ fn long_repository_tabs_scroll_instead_of_wrapping_above_tools() {
     harness.run();
     let search = harness.get_by_label("Search diff").rect();
     assert!(search.bottom() < 140.0, "Tabs must not wrap: {search:?}");
-    assert!(harness.get_by_label("Close repo tab").rect().right() <= 420.0);
+    assert!(
+        harness.get_by_label("Close repo tab").rect().right()
+            <= harness.get_by_label("UI −").rect().left()
+    );
 }
 
 #[test]
@@ -468,11 +484,116 @@ fn newly_selected_overflow_tab_and_its_close_control_scroll_into_view() {
     harness.run();
     harness.state_mut().selected_tab = 8;
     harness.run_steps(4);
+    let strip_end = harness.get_by_label("UI −").rect().left();
     for label in ["long-repository-name-7", "Close long-repository-name-7 tab"] {
         let rect = harness.get_by_label(label).rect();
         assert!(
-            rect.left() >= 0.0 && rect.right() <= 420.0,
+            rect.left() >= 0.0 && rect.right() <= strip_end,
             "{label}: {rect:?}"
         );
     }
+}
+
+#[test]
+fn toolbar_breaks_into_two_rows_below_the_threshold_and_keeps_search_first() {
+    for (width, two_rows) in [(420.0, true), (640.0, false), (1100.0, false)] {
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(width, 720.0))
+            .build_state(|context, app| app.show(context), viewer());
+        harness.run();
+        let search = harness.get_by_label("Search diff").rect();
+        let full = harness.get_by_label("Full file").rect();
+        let unstaged = harness
+            .get_by_role_and_label(Role::Button, "Unstaged")
+            .rect();
+        assert!(
+            search.left() < full.left(),
+            "{width}: search must come first"
+        );
+        assert_eq!(
+            unstaged.top() > search.bottom(),
+            two_rows,
+            "{width}: {search:?} {unstaged:?}"
+        );
+        if two_rows {
+            let all = harness.get_by_role_and_label(Role::Button, "All").rect();
+            assert!(all.left() <= search.left() + 16.0, "{width}: {all:?}");
+        }
+    }
+}
+
+#[test]
+fn global_controls_sit_beside_the_tabs_not_in_the_toolbar() {
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), viewer());
+    harness.run();
+    let tab = harness.get_by_role_and_label(Role::Tab, "repo").rect();
+    let search = harness.get_by_label("Search diff").rect();
+    assert!(harness.get_by_label("Help").rect().right() >= 1100.0 - 24.0);
+    for label in ["Help", "UI −", "100%", "UI +"] {
+        let rect = harness.get_by_label(label).rect();
+        assert!(
+            rect.bottom() <= search.top(),
+            "{label}: {rect:?} {search:?}"
+        );
+        assert!(rect.left() > tab.right(), "{label}: {rect:?}");
+    }
+    assert!(
+        harness
+            .query_by_label("Current Git changes, including pre-existing edits")
+            .is_none()
+    );
+    assert!(harness.query_by_label("Layout: Side by side").is_none());
+}
+
+#[test]
+fn tabs_with_the_same_name_show_their_parent_folder() {
+    let mut app = viewer();
+    app.tabs[0].root = "/home/work/web".into();
+    let mut second = super::tests::fixture();
+    second.root = "/home/oss/web".into();
+    let mut third = super::tests::fixture();
+    third.root = "/home/luis/unique".into();
+    app.tabs.extend([second, third]);
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), app);
+    harness.run();
+    assert!(harness.query_by_label("work").is_some());
+    assert!(harness.query_by_label("oss").is_some());
+    assert!(harness.query_by_label("luis").is_none());
+    // The tab keeps its bare name and the full path as hover text.
+    assert_eq!(
+        harness
+            .query_all_by_role_and_label(Role::Tab, "web")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn path_row_keeps_copy_and_layout_choice_without_a_selected_file() {
+    let mut app = viewer();
+    app.tabs[0].selected = None;
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), app);
+    harness.run();
+    for label in ["Copy", "Side by side", "Unified"] {
+        assert!(harness.query_by_label(label).is_some(), "{label}");
+    }
+    harness.get_by_label("Unified").click();
+    harness.run();
+    assert!(harness.state().preferences.unified);
+}
+
+#[test]
+fn tab_names_and_parents_follow_either_separator() {
+    assert_eq!(tab_name("/home/work/web/"), "web");
+    assert_eq!(tab_parent("/home/work/web/"), Some("work"));
+    assert_eq!(tab_name("C:\\Users\\luis\\notes.md"), "notes.md");
+    assert_eq!(tab_parent("C:\\Users\\luis\\notes.md"), Some("luis"));
+    assert_eq!(tab_parent("/web"), None);
+    assert_eq!(tab_parent("web"), None);
 }
