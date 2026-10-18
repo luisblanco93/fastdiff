@@ -1437,7 +1437,11 @@ fn branch_label_is_truncated_with_full_tooltip_and_absent_outside_git() {
     assert!(harness.get_by_label(&name).rect().right() <= 420.0);
     harness.get_by_label(&name).hover();
     harness.run();
-    assert!(harness.get_all_by_label(&name).count() >= 2);
+    assert_eq!(
+        harness.get_all_by_label(&name).count(),
+        2,
+        "label plus one tooltip"
+    );
     harness.state_mut().tabs[0].has_repository = false;
     harness.state_mut().tabs[0].branch = Some("Detached HEAD".into());
     harness.run();

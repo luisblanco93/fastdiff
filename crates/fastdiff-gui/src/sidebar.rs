@@ -12,6 +12,7 @@ pub(crate) use model::TreeModel;
 use model::{NodeIdentity, TreeRow};
 #[cfg(test)]
 use paint::status_badge;
+pub(crate) use paint::{document_icon, folder_icon};
 use paint::{row_button, search_field};
 
 const ROW_HEIGHT: f32 = 24.0;

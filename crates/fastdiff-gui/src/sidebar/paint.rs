@@ -166,7 +166,7 @@ fn disclosure(ui: &Ui, center: Pos2, expanded: bool, color: Color32) {
     ));
 }
 
-fn folder_icon(ui: &Ui, rect: Rect, open: bool, color: Color32) {
+pub(crate) fn folder_icon(ui: &Ui, rect: Rect, open: bool, color: Color32) {
     let left = rect.left();
     let top = rect.top() + 3.0;
     let points = vec![
@@ -190,7 +190,7 @@ fn folder_icon(ui: &Ui, rect: Rect, open: bool, color: Color32) {
     }
 }
 
-fn document_icon(ui: &Ui, rect: Rect, color: Color32) {
+pub(crate) fn document_icon(ui: &Ui, rect: Rect, color: Color32) {
     let rect = rect.shrink2(Vec2::new(2.0, 0.0));
     let points = vec![
         rect.left_top(),

@@ -123,11 +123,24 @@ fn narrow_toolbar_keeps_controls_and_filter_inside_window() {
             "Previous match",
             "Next match",
             "Search diff",
+            "Full file",
+            "Git Diff",
+            "All",
+            "Unstaged",
+            "Staged",
+            "Unpushed",
+            "Side by side",
             "Unified",
+            "Copy",
+            "100%",
             "UI −",
             "UI +",
         ] {
-            let rect = harness.get_by_label(label).rect();
+            let rect = harness
+                .query_all_by_label(label)
+                .map(|node| node.rect())
+                .next()
+                .unwrap_or_else(|| panic!("{label}"));
             assert!(
                 rect.left() >= 0.0 && rect.right() <= width,
                 "{label}: {rect:?}"
@@ -451,7 +464,10 @@ fn long_repository_tabs_scroll_instead_of_wrapping_above_tools() {
     harness.run();
     let search = harness.get_by_label("Search diff").rect();
     assert!(search.bottom() < 140.0, "Tabs must not wrap: {search:?}");
-    assert!(harness.get_by_label("Close repo tab").rect().right() <= 420.0);
+    assert!(
+        harness.get_by_label("Close repo tab").rect().right()
+            <= harness.get_by_label("UI −").rect().left()
+    );
 }
 
 #[test]
@@ -468,11 +484,194 @@ fn newly_selected_overflow_tab_and_its_close_control_scroll_into_view() {
     harness.run();
     harness.state_mut().selected_tab = 8;
     harness.run_steps(4);
+    let strip_end = harness.get_by_label("UI −").rect().left();
     for label in ["long-repository-name-7", "Close long-repository-name-7 tab"] {
         let rect = harness.get_by_label(label).rect();
         assert!(
-            rect.left() >= 0.0 && rect.right() <= 420.0,
+            rect.left() >= 0.0 && rect.right() <= strip_end,
             "{label}: {rect:?}"
         );
     }
+}
+
+#[test]
+fn toolbar_breaks_into_two_rows_below_the_threshold_and_keeps_search_first() {
+    for (width, two_rows) in [(420.0, true), (640.0, false), (1100.0, false)] {
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(width, 720.0))
+            .build_state(|context, app| app.show(context), viewer());
+        harness.run();
+        let search = harness.get_by_label("Search diff").rect();
+        let full = harness.get_by_label("Full file").rect();
+        let unstaged = harness
+            .get_by_role_and_label(Role::Button, "Unstaged")
+            .rect();
+        assert!(
+            search.left() < full.left(),
+            "{width}: search must come first"
+        );
+        assert_eq!(
+            unstaged.top() > search.bottom(),
+            two_rows,
+            "{width}: {search:?} {unstaged:?}"
+        );
+        if two_rows {
+            let all = harness.get_by_role_and_label(Role::Button, "All").rect();
+            assert!(all.left() <= search.left() + 16.0, "{width}: {all:?}");
+        }
+    }
+}
+
+#[test]
+fn global_controls_sit_beside_the_tabs_not_in_the_toolbar() {
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), viewer());
+    harness.run();
+    let tab = harness.get_by_role_and_label(Role::Tab, "repo").rect();
+    let search = harness.get_by_label("Search diff").rect();
+    assert!(harness.get_by_label("Help").rect().right() >= 1100.0 - 24.0);
+    for label in ["Help", "UI −", "100%", "UI +"] {
+        let rect = harness.get_by_label(label).rect();
+        assert!(
+            rect.bottom() <= search.top(),
+            "{label}: {rect:?} {search:?}"
+        );
+        assert!(rect.left() > tab.right(), "{label}: {rect:?}");
+    }
+    assert!(
+        harness
+            .query_by_label("Current Git changes, including pre-existing edits")
+            .is_none()
+    );
+    assert!(harness.query_by_label("Layout: Side by side").is_none());
+}
+
+#[test]
+fn tabs_with_the_same_name_show_their_parent_folder() {
+    let mut app = viewer();
+    app.tabs[0].root = "/home/work/web".into();
+    let mut second = super::tests::fixture();
+    second.root = "/home/oss/web".into();
+    let mut third = super::tests::fixture();
+    third.root = "/home/luis/unique".into();
+    app.tabs.extend([second, third]);
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), app);
+    harness.run();
+    assert!(harness.query_by_label("work").is_some());
+    assert!(harness.query_by_label("oss").is_some());
+    assert!(harness.query_by_label("luis").is_none());
+    // The tab keeps its bare name and the full path as hover text.
+    assert_eq!(
+        harness
+            .query_all_by_role_and_label(Role::Tab, "web")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn path_row_keeps_copy_and_layout_choice_without_a_selected_file() {
+    let mut app = viewer();
+    app.tabs[0].selected = None;
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), app);
+    harness.run();
+    for label in ["Copy", "Side by side", "Unified"] {
+        assert!(harness.query_by_label(label).is_some(), "{label}");
+    }
+    harness.get_by_label("Unified").click();
+    harness.run();
+    assert!(harness.state().preferences.unified);
+}
+
+#[test]
+fn tab_names_and_suffixes_follow_either_separator() {
+    assert_eq!(tab_name("/home/work/web/"), "web");
+    assert_eq!(tab_name("C:\\Users\\luis\\notes.md"), "notes.md");
+    let suffixes = tab_suffixes(&["/home/work/web/", "C:\\Users\\work\\web", "/solo"]);
+    assert_eq!(suffixes[0].as_deref(), Some("home/work"));
+    assert_eq!(suffixes[1].as_deref(), Some("Users/work"));
+    assert_eq!(suffixes[2], None);
+}
+
+#[test]
+fn duplicate_tab_suffix_grows_only_until_the_tabs_differ() {
+    let suffixes = tab_suffixes(&["/a/work/web", "/b/work/web", "/b/other/web", "/b/api"]);
+    assert_eq!(suffixes[0].as_deref(), Some("a/work"));
+    assert_eq!(suffixes[1].as_deref(), Some("b/work"));
+    assert_eq!(suffixes[2].as_deref(), Some("other"));
+    assert_eq!(suffixes[3], None);
+}
+
+#[test]
+fn identical_tab_paths_still_get_a_bounded_suffix() {
+    let suffixes = tab_suffixes(&["/x/web", "/x/web"]);
+    assert_eq!(suffixes[0].as_deref(), Some("x"));
+    assert_eq!(suffixes[1].as_deref(), Some("x"));
+}
+
+#[test]
+fn toolbar_stays_inside_the_window_while_searching() {
+    for width in [640.0, 680.0, 720.0] {
+        let mut app = viewer();
+        app.tabs[0].search = "x".into();
+        app.tabs[0].search_hits = vec![0; 99_999];
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(width, 720.0))
+            .build_state(|context, app| app.show(context), app);
+        harness.run();
+        for label in ["99999 matches", "Unpushed", "Search diff"] {
+            let rect = harness.get_by_label(label).rect();
+            assert!(rect.right() <= width, "{width}: {label} {rect:?}");
+        }
+    }
+}
+
+#[test]
+fn toolbar_row_threshold_reserves_room_for_the_match_count() {
+    assert!(!toolbar_needs_two_rows(TWO_ROW_TOOLBAR_WIDTH, false));
+    assert!(toolbar_needs_two_rows(TWO_ROW_TOOLBAR_WIDTH - 1.0, false));
+    assert!(toolbar_needs_two_rows(TWO_ROW_TOOLBAR_WIDTH, true));
+    assert!(!toolbar_needs_two_rows(
+        TWO_ROW_TOOLBAR_WIDTH + MATCH_COUNT_RESERVE,
+        true
+    ));
+}
+
+fn focus_stops(roots: &[&str]) -> usize {
+    let mut app = viewer();
+    app.tabs[0].root = roots[0].into();
+    for root in &roots[1..] {
+        let mut tab = super::tests::fixture();
+        tab.root = (*root).into();
+        app.tabs.push(tab);
+    }
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), app);
+    harness.run();
+    let mut seen = Vec::new();
+    for _ in 0..80 {
+        harness.key_press(egui::Key::Tab);
+        harness.run();
+        let focused = harness.ctx.memory(|memory| memory.focused());
+        if seen.contains(&focused) {
+            break;
+        }
+        seen.push(focused);
+    }
+    seen.len()
+}
+
+#[test]
+fn tab_icons_and_folder_suffixes_are_not_keyboard_stops() {
+    let one = focus_stops(&["/home/work/web"]);
+    let two = focus_stops(&["/home/work/web", "/home/luis/api"]);
+    let duplicate = focus_stops(&["/home/work/web", "/home/oss/web"]);
+    assert_eq!(two - one, 2, "a tab adds its name and close control only");
+    assert_eq!(duplicate, two, "the folder suffix adds no focus stop");
 }

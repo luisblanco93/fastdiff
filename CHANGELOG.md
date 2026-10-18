@@ -4,6 +4,10 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+### Changed
+
+- The toolbar and tab strip are redesigned. Each tab shows a folder or document icon and, for duplicate names, its parent folder; the active tab is filled and every tab has a dimmed close control. The window-wide UI size, zoom and Help controls sit at the right end of the tab row. The toolbar keeps search and the Full file, Git Diff and Git views, and breaks into two rows below 620 px. A path row always shows the path with the Side by side and Unified toggle and Copy. Branch and path labels are selectable.
+
 ## [1.1.0] - 2026-10-15
 
 ### Added

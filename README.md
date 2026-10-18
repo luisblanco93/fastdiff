@@ -75,7 +75,7 @@ dff . --theme                # Material file icons and colored reflog
 
 From a source build, run `fastdiff` with the same arguments; `dff` is the command the installer creates.
 
-**All** lists each path once and labels its Unpushed, Staged, and Unstaged comparisons separately. The default layout is side by side; switch to Unified in the toolbar. Binary files, conflicts, and oversized changes get a summary instead of a freeze.
+**All** lists each path once and labels its Unpushed, Staged, and Unstaged comparisons separately. The default layout is side by side; switch to Unified next to the file path. Binary files, conflicts, and oversized changes get a summary instead of a freeze.
 
 <table>
   <tr>
