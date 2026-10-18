@@ -589,11 +589,89 @@ fn path_row_keeps_copy_and_layout_choice_without_a_selected_file() {
 }
 
 #[test]
-fn tab_names_and_parents_follow_either_separator() {
+fn tab_names_and_suffixes_follow_either_separator() {
     assert_eq!(tab_name("/home/work/web/"), "web");
-    assert_eq!(tab_parent("/home/work/web/"), Some("work"));
     assert_eq!(tab_name("C:\\Users\\luis\\notes.md"), "notes.md");
-    assert_eq!(tab_parent("C:\\Users\\luis\\notes.md"), Some("luis"));
-    assert_eq!(tab_parent("/web"), None);
-    assert_eq!(tab_parent("web"), None);
+    let suffixes = tab_suffixes(&["/home/work/web/", "C:\\Users\\work\\web", "/solo"]);
+    assert_eq!(suffixes[0].as_deref(), Some("home/work"));
+    assert_eq!(suffixes[1].as_deref(), Some("Users/work"));
+    assert_eq!(suffixes[2], None);
+}
+
+#[test]
+fn duplicate_tab_suffix_grows_only_until_the_tabs_differ() {
+    let suffixes = tab_suffixes(&["/a/work/web", "/b/work/web", "/b/other/web", "/b/api"]);
+    assert_eq!(suffixes[0].as_deref(), Some("a/work"));
+    assert_eq!(suffixes[1].as_deref(), Some("b/work"));
+    assert_eq!(suffixes[2].as_deref(), Some("other"));
+    assert_eq!(suffixes[3], None);
+}
+
+#[test]
+fn identical_tab_paths_still_get_a_bounded_suffix() {
+    let suffixes = tab_suffixes(&["/x/web", "/x/web"]);
+    assert_eq!(suffixes[0].as_deref(), Some("x"));
+    assert_eq!(suffixes[1].as_deref(), Some("x"));
+}
+
+#[test]
+fn toolbar_stays_inside_the_window_while_searching() {
+    for width in [640.0, 680.0, 720.0] {
+        let mut app = viewer();
+        app.tabs[0].search = "x".into();
+        app.tabs[0].search_hits = vec![0; 99_999];
+        let mut harness = Harness::builder()
+            .with_size(egui::vec2(width, 720.0))
+            .build_state(|context, app| app.show(context), app);
+        harness.run();
+        for label in ["99999 matches", "Unpushed", "Search diff"] {
+            let rect = harness.get_by_label(label).rect();
+            assert!(rect.right() <= width, "{width}: {label} {rect:?}");
+        }
+    }
+}
+
+#[test]
+fn toolbar_row_threshold_reserves_room_for_the_match_count() {
+    assert!(!toolbar_needs_two_rows(TWO_ROW_TOOLBAR_WIDTH, false));
+    assert!(toolbar_needs_two_rows(TWO_ROW_TOOLBAR_WIDTH - 1.0, false));
+    assert!(toolbar_needs_two_rows(TWO_ROW_TOOLBAR_WIDTH, true));
+    assert!(!toolbar_needs_two_rows(
+        TWO_ROW_TOOLBAR_WIDTH + MATCH_COUNT_RESERVE,
+        true
+    ));
+}
+
+fn focus_stops(roots: &[&str]) -> usize {
+    let mut app = viewer();
+    app.tabs[0].root = roots[0].into();
+    for root in &roots[1..] {
+        let mut tab = super::tests::fixture();
+        tab.root = (*root).into();
+        app.tabs.push(tab);
+    }
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), app);
+    harness.run();
+    let mut seen = Vec::new();
+    for _ in 0..80 {
+        harness.key_press(egui::Key::Tab);
+        harness.run();
+        let focused = harness.ctx.memory(|memory| memory.focused());
+        if seen.contains(&focused) {
+            break;
+        }
+        seen.push(focused);
+    }
+    seen.len()
+}
+
+#[test]
+fn tab_icons_and_folder_suffixes_are_not_keyboard_stops() {
+    let one = focus_stops(&["/home/work/web"]);
+    let two = focus_stops(&["/home/work/web", "/home/luis/api"]);
+    let duplicate = focus_stops(&["/home/work/web", "/home/oss/web"]);
+    assert_eq!(two - one, 2, "a tab adds its name and close control only");
+    assert_eq!(duplicate, two, "the folder suffix adds no focus stop");
 }

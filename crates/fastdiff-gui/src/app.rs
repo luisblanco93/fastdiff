@@ -21,6 +21,15 @@ const SIDEBAR_TOP_GAP: f32 = 6.0;
 const BRANCH_LABEL_MAX_WIDTH: f32 = 360.0;
 /// Below this width the toolbar breaks into two rows; egui cannot wrap widget groups.
 const TWO_ROW_TOOLBAR_WIDTH: f32 = 620.0;
+/// Width of the "N matches" label and its spacing, which only an active search adds to row one.
+const MATCH_COUNT_RESERVE: f32 = 80.0;
+/// A folder suffix wider than this is truncated so it cannot push the close control away.
+const TAB_SUFFIX_MAX_WIDTH: f32 = 140.0;
+
+fn toolbar_needs_two_rows(width: f32, searching: bool) -> bool {
+    let reserve = if searching { MATCH_COUNT_RESERVE } else { 0.0 };
+    width < TWO_ROW_TOOLBAR_WIDTH + reserve
+}
 
 struct TabView<'a> {
     title: &'a str,
@@ -44,10 +53,49 @@ fn tab_name(title: &str) -> &str {
         .unwrap_or(title)
 }
 
-fn tab_parent(title: &str) -> Option<&str> {
-    let trimmed = title.trim_end_matches(['/', '\\']);
-    let parent = trimmed.rsplit_once(['/', '\\'])?.0;
-    Some(tab_name(parent)).filter(|name| !name.is_empty())
+fn parent_segments(title: &str) -> Vec<&str> {
+    let mut segments: Vec<&str> = title
+        .trim_end_matches(['/', '\\'])
+        .split(['/', '\\'])
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    segments.pop();
+    segments
+}
+
+fn parent_tail(parents: &[&str], depth: usize) -> Option<String> {
+    let tail = &parents[parents.len().saturating_sub(depth)..];
+    (!tail.is_empty()).then(|| tail.join("/"))
+}
+
+/// For tabs that share a name, the shortest run of parent folders that tells them apart.
+fn tab_suffixes(titles: &[&str]) -> Vec<Option<String>> {
+    titles
+        .iter()
+        .enumerate()
+        .map(|(index, title)| {
+            let name = tab_name(title);
+            let rivals: Vec<Vec<&str>> = titles
+                .iter()
+                .enumerate()
+                .filter(|&(other, other_title)| other != index && tab_name(other_title) == name)
+                .map(|(_, other_title)| parent_segments(other_title))
+                .collect();
+            if rivals.is_empty() {
+                return None;
+            }
+            let own = parent_segments(title);
+            let longest = rivals.iter().map(Vec::len).fold(own.len(), usize::max);
+            let depth = (1..=longest.max(1))
+                .find(|&depth| {
+                    rivals
+                        .iter()
+                        .all(|rival| parent_tail(rival, depth) != parent_tail(&own, depth))
+                })
+                .unwrap_or(longest);
+            parent_tail(&own, depth)
+        })
+        .collect()
 }
 
 mod reflog;
@@ -983,6 +1031,7 @@ impl Fastdiff {
                 }
             })
             .collect();
+        let suffixes = tab_suffixes(&titles);
         let mut close = None;
         ui.allocate_ui_with_layout(
             egui::vec2(ui.available_width(), TAB_ROW_HEIGHT),
@@ -999,14 +1048,7 @@ impl Fastdiff {
                                 for (index, tab) in self.tabs.iter().enumerate() {
                                     let title = titles[index];
                                     let name = tab_name(title);
-                                    let folder = titles
-                                        .iter()
-                                        .enumerate()
-                                        .any(|(other, other_title)| {
-                                            other != index && tab_name(other_title) == name
-                                        })
-                                        .then(|| tab_parent(title))
-                                        .flatten();
+                                    let folder = suffixes[index].as_deref();
                                     let selected = index == self.selected_tab;
                                     let is_document = tab.request.target == OpenTarget::Document;
                                     Self::tab(
@@ -1062,9 +1104,11 @@ impl Fastdiff {
             })
             .inner_margin(egui::Margin::symmetric(8, 4))
             .show(ui, |ui| {
-                // Allocate the full label height so the icon centers on the name.
+                // Allocate the full label height so the icon centers on the name. CLICK without
+                // FOCUSABLE: the name button is the tab's keyboard stop, not the icon.
                 let (slot, icon_response) =
-                    ui.allocate_exact_size(egui::vec2(TAB_ICON_SIZE, 24.0), egui::Sense::click());
+                    ui.allocate_exact_size(egui::vec2(TAB_ICON_SIZE, 24.0), egui::Sense::CLICK);
+                let icon_hovered = icon_response.hovered();
                 if icon_response.clicked() {
                     act(TabAction::Select);
                 }
@@ -1118,17 +1162,27 @@ impl Fastdiff {
                         egui::StrokeKind::Inside,
                     );
                 }
-                let tab_hovered = response.hovered();
+                let mut tab_hovered = icon_hovered || response.hovered();
                 if response.on_hover_text(title).clicked() {
                     act(TabAction::Select);
                 }
                 if let Some(folder) = folder {
                     ui.add_space(2.0);
-                    let suffix = ui.add(
+                    let font = egui::TextStyle::Small.resolve(ui.style());
+                    let width = ui
+                        .painter()
+                        .layout_no_wrap(folder.to_owned(), font, ui.visuals().weak_text_color())
+                        .size()
+                        .x
+                        .min(TAB_SUFFIX_MAX_WIDTH);
+                    let suffix = ui.add_sized(
+                        [width, 24.0],
                         egui::Label::new(egui::RichText::new(folder).small().weak())
                             .selectable(false)
-                            .sense(egui::Sense::click()),
+                            .truncate()
+                            .sense(egui::Sense::CLICK),
                     );
+                    tab_hovered |= suffix.hovered();
                     if suffix.clicked() {
                         act(TabAction::Select);
                     }
@@ -1210,7 +1264,7 @@ impl Fastdiff {
 
     fn toolbar(tab: &mut ReviewTab, ui: &mut egui::Ui) {
         ui.add_space(TOOLBAR_TOP_GAP);
-        if ui.available_width() >= TWO_ROW_TOOLBAR_WIDTH {
+        if !toolbar_needs_two_rows(ui.available_width(), !tab.search.is_empty()) {
             ui.horizontal(|ui| {
                 Self::search_controls(tab, ui);
                 Self::mode_controls(tab, ui);
@@ -1360,12 +1414,12 @@ impl Fastdiff {
                     .with_main_justify(true);
                 ui.with_layout(path_layout, |ui| {
                     if let Some(path) = &path {
+                        // A truncated label already shows the full path on hover.
                         ui.add(
                             egui::Label::new(egui::RichText::new(path).monospace())
                                 .truncate()
                                 .halign(egui::Align::Min),
-                        )
-                        .on_hover_text(path);
+                        );
                     }
                 });
             },

@@ -222,7 +222,7 @@ Compact and utilitarian: small, unadorned, every state legible.
 ### Tabs
 - **Shape:** top corners 4px, flat bottom, 24px label height with 8×4px padding.
 - **Identity:** an 11px drawn icon before the name: folder for a repository, document for a file. Tabs never show the branch (names can be very long); the branch stays in the status bar.
-- **Default:** transparent, Chrome Text label, truncated between 48px and 180px. Tabs with the same name add the parent folder in small weak text.
+- **Default:** transparent, Chrome Text label, truncated between 48px and 180px. Tabs with the same name add as many parent folders as it takes to tell them apart, in small weak text capped at 140px.
 - **Active:** Chrome Control fill, Chrome Strong label, Chrome Focus icon, 2px Chrome Focus underline.
 - **Close:** a drawn ✕ inside a 24px target, always present; weak on inactive tabs until hovered, then brightens. Focus draws a 2px-radius ring.
 - **Window controls:** UI −, zoom percentage, UI +, and Help sit at the right end of the tab row.
