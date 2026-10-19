@@ -84,15 +84,15 @@ dff . --theme                # Material file icons and colored reflog
 <table>
   <tr>
     <td width="50%"><img src="https://github.com/user-attachments/assets/90554af8-2cb0-4f60-8e65-b6eea511574b" alt="Unpushed view listing the net change of local commits"><br><sub><b>Unpushed.</b> The net change of your local commits against the last fetched upstream, or against your other branches when there is none.</sub></td>
-    <td width="50%"><img src="https://github.com/user-attachments/assets/ce8c1127-2d77-415c-9844-5892fea1ab57" alt="Reflog panel below the file tree showing HEAD history"><br><sub><b>Reflog.</b> HEAD history under the file tree, <kbd>Ctrl</kbd>+<kbd>5</kbd>.</sub></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/ce8c1127-2d77-415c-9844-5892fea1ab57" alt="Reflog panel below the file tree showing HEAD history"><br><sub><b>Reflog.</b> HEAD history under the file tree, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>5</kbd>.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="https://github.com/user-attachments/assets/24e1eb95-d3e7-4df8-b4ae-1985dcfb3968" alt="Search highlighting every match across the diff"><br><sub><b>Search.</b> <kbd>Ctrl</kbd>+<kbd>F</kbd> highlights every match; <kbd>F3</kbd> jumps between them.</sub></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/24e1eb95-d3e7-4df8-b4ae-1985dcfb3968" alt="Search highlighting every match across the diff"><br><sub><b>Search.</b> <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>F</kbd> highlights every match; <kbd>F3</kbd> jumps between them.</sub></td>
     <td width="50%"><img src="https://github.com/user-attachments/assets/7ac92d63-5873-4343-a9cb-819ecca22047" alt="Keyboard shortcut reference opened with F1"><br><sub><b>Keyboard first.</b> <kbd>F1</kbd> lists every shortcut.</sub></td>
   </tr>
 </table>
 
-Files refresh automatically. Navigate with <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> (files) and <kbd>Ctrl</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> (hunks), filter the tree with <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>, and collapse unchanged context. Full controls and limits: [docs/usage.md](docs/usage.md).
+Files refresh automatically. Navigate with <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> (files) and <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> (hunks), filter the tree with <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd>, and collapse unchanged context. Full controls and limits: [docs/usage.md](docs/usage.md).
 
 ## For AI agents: start here
 
