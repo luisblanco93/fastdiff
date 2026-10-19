@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "fastdiff-cli"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "fastdiff-core",
  "fs2",
@@ -1037,7 +1037,7 @@ dependencies = [
 
 [[package]]
 name = "fastdiff-core"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "libc",
  "serde",
@@ -1048,7 +1048,7 @@ dependencies = [
 
 [[package]]
 name = "fastdiff-gui"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "eframe",
  "egui",
