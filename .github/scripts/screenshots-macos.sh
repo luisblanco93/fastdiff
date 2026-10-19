@@ -47,4 +47,24 @@ snap shortcuts
 launch --view unpushed --file src/routes/orders.rs
 snap unpushed
 
+# Walkthrough video of the window, keyboard only (the cursor is not recorded).
+launch --file src/main.rs
+bounds=$(osascript -e 'tell application "System Events" to tell process "fastdiff-gui" to get {position, size} of window 1' 2>>"$log" | tr -d ' ')
+echo "video window bounds: $bounds" >>"$log"
+screencapture -x -v -V 28 -R"$bounds" "$shots/walkthrough.mov" >>"$log" 2>&1 &
+recorder=$!
+sleep 3
+keys 'keystroke "4" using command down'; sleep 3          # Unpushed
+keys 'key code 125 using option down'; sleep 2            # next file
+keys 'keystroke "1" using command down'; sleep 3          # back to All
+keys 'key code 125 using option down'; sleep 2
+keys 'keystroke "5" using command down'; sleep 3          # Reflog
+keys 'keystroke "5" using command down'; sleep 1
+keys 'keystroke "f" using command down'; sleep 1
+keys 'keystroke "route"'; sleep 3                         # Search
+keys 'key code 53'; sleep 1
+keys 'key code 122'; sleep 3                              # Shortcuts
+keys 'key code 53'; sleep 1
+wait "$recorder"
+
 pgrep -fl fastdiff-gui >>"$log" 2>&1 || echo "no fastdiff-gui process at end" >>"$log"
