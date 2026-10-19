@@ -129,73 +129,56 @@ impl PreparedDocument {
         prepared.unified_lines = make_lines(&prepared, true, &Default::default()).into();
         prepared
     }
+    /// Builds a full-file document directly: one pass creates the rows, their highlights and the
+    /// widest line, without the diff-mode widths and line arrays a general diff needs.
     pub fn from_text(_path: String, text: String, cancel: &CancelToken) -> Self {
-        let rows = text
-            .lines()
-            .enumerate()
-            .map(|(index, line)| fastdiff_core::DiffRow {
+        let mut checkpoints = Vec::new();
+        let mut right_columns = 0;
+        let mut source_rows = Vec::new();
+        let mut rows = Vec::new();
+        for (index, line) in text.lines().enumerate() {
+            rows.push(PreparedRow {
+                comparison: 0,
+                index,
+                left: Vec::new(),
+                right: if cancel.is_cancelled() {
+                    Vec::new()
+                } else {
+                    highlight(line)
+                },
+            });
+            right_columns = right_columns.max(line_columns(line, index, cancel, &mut checkpoints));
+            source_rows.push(fastdiff_core::DiffRow {
                 kind: fastdiff_core::RowKind::Context,
                 old_number: None,
                 new_number: Some(index + 1),
                 left: String::new(),
                 right: line.to_owned(),
-            })
-            .collect();
-        let mut prepared = Self::new(
-            DiffDocument {
+            });
+        }
+        let mut prepared = Self {
+            is_document: true,
+            document: DiffDocument {
                 comparisons: vec![fastdiff_core::Comparison {
                     label: "Full file".into(),
                     patch: String::new(),
                     summary: None,
-                    rows,
+                    rows: source_rows,
                 }],
             },
-            cancel,
-        );
-        prepared.is_document = true;
-        let mut checkpoints = Vec::new();
-        prepared.right_columns = prepared.document.comparisons[0]
-            .rows
-            .iter()
-            .enumerate()
-            .map(|(row, source)| {
-                let indexed = source.right.len() > LONG_LINE_BYTES;
-                let mut columns = 0;
-                let mut characters = 0;
-                for (byte, character) in source.right.char_indices() {
-                    if characters % CHECKPOINT_CHARACTERS == 0 {
-                        if cancel.is_cancelled() {
-                            return 0;
-                        }
-                        if indexed {
-                            checkpoints.push(LineCheckpoint {
-                                row,
-                                byte,
-                                character: characters,
-                                columns,
-                            });
-                        }
-                    }
-                    columns += character_columns(character);
-                    characters += 1;
-                }
-                if indexed {
-                    checkpoints.push(LineCheckpoint {
-                        row,
-                        byte: source.right.len(),
-                        character: characters,
-                        columns,
-                    });
-                }
-                columns
-            })
-            .max()
-            .unwrap_or(0);
-        if !cancel.is_cancelled() {
-            prepared.long_line_checkpoints = checkpoints;
-        }
-        prepared.max_columns = prepared.right_columns;
-        prepared.context.fill(false);
+            context: vec![false; rows.len()],
+            rows,
+            max_columns: right_columns,
+            left_columns: 0,
+            right_columns,
+            side_lines: Arc::from([]),
+            unified_lines: Arc::from([]),
+            long_line_checkpoints: if cancel.is_cancelled() {
+                Vec::new()
+            } else {
+                checkpoints
+            },
+        };
         prepared.side_lines = make_lines(&prepared, true, &Default::default()).into();
         prepared.unified_lines = Arc::clone(&prepared.side_lines);
         prepared
@@ -223,6 +206,45 @@ pub(crate) fn character_columns(character: char) -> usize {
     } else {
         character.width().unwrap_or(1).max(1)
     }
+}
+
+/// Display columns of `line`; a line over `LONG_LINE_BYTES` also appends the checkpoints
+/// that let the renderer window it. A cancelled build reports 0 columns.
+fn line_columns(
+    line: &str,
+    row: usize,
+    cancel: &CancelToken,
+    checkpoints: &mut Vec<LineCheckpoint>,
+) -> usize {
+    let indexed = line.len() > LONG_LINE_BYTES;
+    let mut columns = 0;
+    let mut characters = 0;
+    for (byte, character) in line.char_indices() {
+        if characters % CHECKPOINT_CHARACTERS == 0 {
+            if cancel.is_cancelled() {
+                return 0;
+            }
+            if indexed {
+                checkpoints.push(LineCheckpoint {
+                    row,
+                    byte,
+                    character: characters,
+                    columns,
+                });
+            }
+        }
+        columns += character_columns(character);
+        characters += 1;
+    }
+    if indexed {
+        checkpoints.push(LineCheckpoint {
+            row,
+            byte: line.len(),
+            character: characters,
+            columns,
+        });
+    }
+    columns
 }
 
 fn display_columns(text: &str) -> usize {
@@ -565,6 +587,18 @@ fn watcher_due(
     deferred && (first_diff_shown || deadline.is_some_and(|at| now >= at))
 }
 
+/// How often a standalone document refreshes its branch and Git status on a plain timer tick.
+const DOCUMENT_GIT_POLL: Duration = Duration::from_secs(10);
+
+/// A document shows neither the branch list nor the changed files, and switching to a Git view
+/// refreshes both, so on a plain timer tick it only re-reads its file. Git runs while a
+/// request, explicit refresh or filesystem event is still owed a published status (a cancelled
+/// or failed poll stays owed), and otherwise on the slower interval that still covers a
+/// filesystem that raises no events.
+fn git_poll_due(document_open: bool, owed: bool, now: Instant, next_git_poll: Instant) -> bool {
+    !document_open || owed || now >= next_git_poll
+}
+
 fn run(
     request: OpenRequest,
     receiver: Receiver<()>,
@@ -615,26 +649,19 @@ fn run_with_discovery(
     );
     let mut document_path =
         (request.target == OpenTarget::Document).then(|| request.repository.clone());
-    // Building the watcher costs hundreds of milliseconds on Windows and nothing needs it
-    // before the first diff is shown, so a repository review creates it afterwards. The 2 s
-    // poll covers the gap. Document targets still watch from the start.
-    let mut watcher_deferred = request.wsl.is_none() && document_path.is_none();
+    // Building the watcher costs hundreds of milliseconds on Windows (it resolves the Git
+    // metadata paths and registers the whole repository) and nothing needs it before the first
+    // content is shown, so every native target creates it afterwards. The 2 s poll covers the
+    // gap, and a document is re-read as soon as the watcher exists (see below).
+    let mut watcher_deferred = request.wsl.is_none();
     let mut watcher_deadline: Option<Instant> = None;
     let mut first_diff_shown = false;
-    let mut watcher = (request.wsl.is_none() && !watcher_deferred).then(|| {
-        watch::WatchCoverage::new(
-            &backend,
-            document_path.as_deref(),
-            wake.clone(),
-            &startup_cancel,
-        )
-    });
-    if let Some(watcher) = &mut watcher {
-        report_watch_diagnostics(watcher.take_diagnostics());
-    }
+    let mut watcher: Option<watch::WatchCoverage> = None;
     let mut generation = 0;
     let mut view = request.view;
     let mut next_poll = Instant::now();
+    let mut next_git_poll = Instant::now();
+    let mut git_owed = true;
     let mut explicit_refresh = true;
     let mut dirty: Option<Instant> = None;
     let mut watch_dirty: Option<Instant> = None;
@@ -972,6 +999,11 @@ fn run_with_discovery(
                 report_watch_diagnostics(created.take_diagnostics());
                 watcher = Some(created);
                 watcher_deferred = false;
+                // An edit made before the watcher was registered raised no event. Re-reading the
+                // document now bounds its staleness by the build time instead of the 2 s poll.
+                if document_path.is_some() {
+                    next_poll = Instant::now();
+                }
             }
         }
         if watch_dirty.is_some_and(|at| Instant::now() >= at)
@@ -1013,8 +1045,11 @@ fn run_with_discovery(
             continue;
         }
         if Instant::now() >= next_poll || dirty.is_some_and(|at| Instant::now() >= at) {
+            let now = Instant::now();
+            git_owed |= explicit_refresh || dirty.is_some_and(|at| now >= at);
+            let git_due = git_poll_due(document_path.is_some(), git_owed, now, next_git_poll);
             dirty = None;
-            next_poll = Instant::now() + Duration::from_secs(2);
+            next_poll = now + Duration::from_secs(2);
             let token = shared.pending.lock().ok().and_then(|pending| {
                 if pending.work.is_some() {
                     None
@@ -1025,7 +1060,7 @@ fn run_with_discovery(
             let Some(token) = token else {
                 continue;
             };
-            if backend.has_repository() {
+            if git_due && backend.has_repository() {
                 match backend.current_branch(&token) {
                     Ok(branch) if !token.is_cancelled() => {
                         emit(&shared, &context, Event::Branch { generation, branch })
@@ -1045,6 +1080,9 @@ fn run_with_discovery(
                 }
             }
             if let Some(path) = &document_path {
+                // A document that cannot be read still gets its watcher, so a file that appears
+                // later is noticed by events and not only by the poll.
+                watcher_deadline.get_or_insert_with(|| Instant::now() + WATCHER_DEFER_LIMIT);
                 match backend.document(path, &token) {
                     Ok(text) if !token.is_cancelled() => {
                         emit(
@@ -1103,7 +1141,7 @@ fn run_with_discovery(
                     continue;
                 }
             }
-            if !backend.has_repository() {
+            if !git_due || !backend.has_repository() {
                 continue;
             }
             match backend.status_with_notice(view, &token) {
@@ -1139,6 +1177,8 @@ fn run_with_discovery(
                             },
                         );
                         explicit_refresh = false;
+                        git_owed = false;
+                        next_git_poll = Instant::now() + DOCUMENT_GIT_POLL;
                         watcher_deadline
                             .get_or_insert_with(|| Instant::now() + WATCHER_DEFER_LIMIT);
                     }
@@ -1298,6 +1338,12 @@ fn report_watch_diagnostics(messages: Vec<String>) {
 
 #[cfg(test)]
 mod search_tests;
+
+#[cfg(test)]
+mod document_tests;
+
+#[cfg(test)]
+mod document_watch_tests;
 
 #[cfg(test)]
 mod tests {
@@ -2146,6 +2192,28 @@ mod tests {
         assert!(changed.document.comparisons[0].patch.contains("bbbb"));
         assert!(!Arc::ptr_eq(&first, &changed));
         assert_eq!(wait_status(&worker, 5, true), refreshed);
+    }
+
+    #[test]
+    fn a_document_leaves_git_to_events_and_the_slow_interval() {
+        let now = Instant::now();
+        let later = now + Duration::from_secs(5);
+        assert!(
+            git_poll_due(false, false, now, later),
+            "Git views poll every tick"
+        );
+        assert!(
+            !git_poll_due(true, false, now, later),
+            "plain tick re-reads the file only"
+        );
+        assert!(
+            git_poll_due(true, true, now, later),
+            "events and explicit refresh poll Git"
+        );
+        assert!(
+            git_poll_due(true, false, later, later),
+            "the slow interval still runs"
+        );
     }
 
     #[test]

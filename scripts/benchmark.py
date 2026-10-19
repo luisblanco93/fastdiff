@@ -58,7 +58,8 @@ def process_info(pid: int, windows_from_wsl: bool = False) -> tuple[bool, int]:
         return windows_process_info(pid)
     try:
         status = Path(f"/proc/{pid}/status").read_text(encoding="ascii")
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
+        # A process that exits while its status is read reports ESRCH, not ENOENT.
         return False, 0
     fields = dict(line.split(":", 1) for line in status.splitlines() if ":" in line)
     if fields.get("State", "").strip().startswith("Z"):
@@ -70,12 +71,19 @@ def exit_budget_ms(probe: ResourceProbe | None) -> int:
     return EXIT_MS + (PROBE_EXIT_MARGIN_MS if probe is not None else 0)
 
 
+def launch_arguments(args: argparse.Namespace) -> list[str]:
+    """A repository review of `--file`, or with `--document` that file opened on its own."""
+    if getattr(args, "document", False):
+        return [args.launcher, args.file]
+    return [args.launcher, args.repository, "--file", args.file]
+
+
 def launch_sample(args: argparse.Namespace, report: Path,
                   probe: ResourceProbe | None = None) -> Sample:
     exit_ms = exit_budget_ms(probe)
     env = dict(os.environ, FASTDIFF_BENCH_REPORT=str(report),
                FASTDIFF_BENCH_EXIT_MS=str(exit_ms))
-    command = [args.launcher, args.repository, "--file", args.file]
+    command = launch_arguments(args)
     if os.name != "nt" and not args.windows_from_wsl:
         command = command + ["--native"]
     if args.wsl_distro:
@@ -200,6 +208,9 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--report-directory", type=Path)
     parser.add_argument("--runs", type=int, default=MIN_RUNS)
     parser.add_argument("--timeout", type=float, default=15)
+    parser.add_argument("--document", action="store_true",
+                        help="Open --file as a standalone document (absolute path) instead of "
+                             "as a file of --repository; --repository then only labels the run")
     parser.add_argument("--launch-profile", action="store_true",
                         help="Profile a marked scratch file; temporarily replaces its marker")
     parser.add_argument("--case", choices=["cold", "warm"], default="cold")
@@ -222,6 +233,10 @@ def arguments() -> argparse.Namespace:
     profiling = args.launch_profile or args.scenario is not None
     if profiling and not args.software:
         parser.error("--launch-profile and --scenario require --software to identify the measured builds")
+    if args.document and (profiling or args.wsl_distro or args.windows_from_wsl):
+        parser.error("--document only applies to the plain native launch benchmark")
+    if args.document and not Path(args.file).is_absolute():
+        parser.error("--document needs an absolute --file path")
     if args.scenario and args.launch_profile:
         parser.error("--scenario already profiles the marked file; omit --launch-profile")
     if args.scenario and args.case != "cold":

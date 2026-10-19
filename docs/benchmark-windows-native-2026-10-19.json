@@ -1,0 +1,1666 @@
+{
+  "schema": 2,
+  "hardware": "Windows native (host of WSL2 dev box); Defender state not changed",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+  "software": "lit34-new",
+  "wsl_distro": null,
+  "launcher": "C:\\Users\\<user>\\fastdiff-lit34\\target\\release\\fastdiff.exe",
+  "windows_from_wsl": false,
+  "repository": "C:\\Users\\<user>\\fastdiff-lit34-fix\\review2",
+  "file": "a.rs",
+  "environment": {
+    "software": "lit34-new",
+    "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+    "python_implementation": "CPython",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "machine": "AMD64",
+    "launcher": "C:\\Users\\<user>\\fastdiff-lit34\\target\\release\\fastdiff.exe",
+    "wsl_distro": null,
+    "windows_from_wsl": false
+  },
+  "gui_build": {
+    "version": "1.1.0",
+    "revision": null,
+    "profile": "release",
+    "protocol": 5
+  },
+  "gui_platform": {
+    "os": "windows",
+    "arch": "x86_64"
+  },
+  "gui_control_poll_ms": 250.0,
+  "telemetry_schemas": [
+    2
+  ],
+  "requested_runs": 30,
+  "completed_runs": 30,
+  "failure": null,
+  "samples": [
+    {
+      "first_frame_ms": 248.00689726562499,
+      "first_diff_ms": 864.668897265625,
+      "launcher_ms": 247.46419999974023,
+      "idle_rss_bytes": 84799488,
+      "ack_ms": 247.46419999974023,
+      "ui_ready_ms": 248.00689726562499,
+      "requested_content_ms": 864.668897265625,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84799488,
+          "idle_cpu_percent": 0.0,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84799488,
+          "idle_cpu_percent": 0.0,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {},
+          "complete": true,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 254.4272390625,
+      "first_diff_ms": 904.6503390624999,
+      "launcher_ms": 255.00509999983478,
+      "idle_rss_bytes": 84598784,
+      "ack_ms": 255.00509999983478,
+      "ui_ready_ms": 254.4272390625,
+      "requested_content_ms": 904.6503390624999,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84598784,
+          "idle_cpu_percent": 68.7935791222976,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84598784,
+          "idle_cpu_percent": 68.7935791222976,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [5928, 14684, 15300, 19716, 22480]; CPU of [5928, 14684, 15300, 19716, 22480] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 253.40525703125002,
+      "first_diff_ms": 897.14575703125,
+      "launcher_ms": 254.06720000046334,
+      "idle_rss_bytes": 84905984,
+      "ack_ms": 254.06720000046334,
+      "ui_ready_ms": 253.40525703125002,
+      "requested_content_ms": 897.14575703125,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84905984,
+          "idle_cpu_percent": 64.81828488460181,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84905984,
+          "idle_cpu_percent": 64.81828488460181,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [7804, 11288, 17800, 18412, 21400]; CPU of [7804, 11288, 17800, 18412, 21400] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 248.25005585937498,
+      "first_diff_ms": 863.913655859375,
+      "launcher_ms": 249.2872000002535,
+      "idle_rss_bytes": 84725760,
+      "ack_ms": 249.2872000002535,
+      "ui_ready_ms": 248.25005585937498,
+      "requested_content_ms": 863.913655859375,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84725760,
+          "idle_cpu_percent": 47.135871270028304,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84725760,
+          "idle_cpu_percent": 47.135871270028304,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [1572, 4700, 7720, 12328, 22000]; CPU of [1572, 4700, 7720, 12328, 22000] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 247.545483203125,
+      "first_diff_ms": 853.744983203125,
+      "launcher_ms": 248.5372000001007,
+      "idle_rss_bytes": 85286912,
+      "ack_ms": 248.5372000001007,
+      "ui_ready_ms": 247.545483203125,
+      "requested_content_ms": 853.744983203125,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85286912,
+          "idle_cpu_percent": 58.920486191111856,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85286912,
+          "idle_cpu_percent": 58.920486191111856,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [11600, 15052, 17516, 19580, 21148]; CPU of [11600, 15052, 17516, 19580, 21148] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 255.15692187500002,
+      "first_diff_ms": 875.478321875,
+      "launcher_ms": 256.40459999976883,
+      "idle_rss_bytes": 85020672,
+      "ack_ms": 256.40459999976883,
+      "ui_ready_ms": 255.15692187500002,
+      "requested_content_ms": 875.478321875,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85020672,
+          "idle_cpu_percent": 56.05645241161287,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85020672,
+          "idle_cpu_percent": 56.05645241161287,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [1124, 2032, 4864, 12700, 19828]; CPU of [1124, 2032, 4864, 12700, 19828] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 245.015793359375,
+      "first_diff_ms": 874.6329933593751,
+      "launcher_ms": 246.08009999974456,
+      "idle_rss_bytes": 85348352,
+      "ack_ms": 246.08009999974456,
+      "ui_ready_ms": 245.015793359375,
+      "requested_content_ms": 874.6329933593751,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85348352,
+          "idle_cpu_percent": 69.2527273550541,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85348352,
+          "idle_cpu_percent": 69.2527273550541,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [3900, 11180, 16264, 17532, 22272]; CPU of [3900, 11180, 16264, 17532, 22272] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 257.730550390625,
+      "first_diff_ms": 913.916650390625,
+      "launcher_ms": 258.87370000054943,
+      "idle_rss_bytes": 85057536,
+      "ack_ms": 258.87370000054943,
+      "ui_ready_ms": 257.730550390625,
+      "requested_content_ms": 913.916650390625,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85057536,
+          "idle_cpu_percent": 55.892229426936375,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85057536,
+          "idle_cpu_percent": 55.892229426936375,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [1992, 7956, 12856, 21484, 21868]; CPU of [1992, 7956, 12856, 21484, 21868] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 302.05041679687497,
+      "first_diff_ms": 950.919816796875,
+      "launcher_ms": 301.8229999997857,
+      "idle_rss_bytes": 84893696,
+      "ack_ms": 301.8229999997857,
+      "ui_ready_ms": 302.05041679687497,
+      "requested_content_ms": 950.919816796875,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84893696,
+          "idle_cpu_percent": 67.61839498814737,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84893696,
+          "idle_cpu_percent": 67.61839498814737,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [15676, 20120, 20264, 21728, 22504]; CPU of [15676, 20120, 20264, 21728, 22504] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 258.685290625,
+      "first_diff_ms": 867.055690625,
+      "launcher_ms": 259.1182000005574,
+      "idle_rss_bytes": 85286912,
+      "ack_ms": 259.1182000005574,
+      "ui_ready_ms": 258.685290625,
+      "requested_content_ms": 867.055690625,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85286912,
+          "idle_cpu_percent": 53.17197034620586,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85286912,
+          "idle_cpu_percent": 53.17197034620586,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [3892, 9372, 9520, 12120, 17460]; CPU of [3892, 9372, 9520, 12120, 17460] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 251.11255273437502,
+      "first_diff_ms": 874.568152734375,
+      "launcher_ms": 251.6341000000466,
+      "idle_rss_bytes": 84996096,
+      "ack_ms": 251.6341000000466,
+      "ui_ready_ms": 251.11255273437502,
+      "requested_content_ms": 874.568152734375,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84996096,
+          "idle_cpu_percent": 69.20418974763831,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84996096,
+          "idle_cpu_percent": 69.20418974763831,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [15920, 18340, 18412, 18824, 21008]; CPU of [15920, 18340, 18412, 18824, 21008] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 251.648196484375,
+      "first_diff_ms": 851.9210964843751,
+      "launcher_ms": 252.24439999965398,
+      "idle_rss_bytes": 85098496,
+      "ack_ms": 252.24439999965398,
+      "ui_ready_ms": 251.648196484375,
+      "requested_content_ms": 851.9210964843751,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85098496,
+          "idle_cpu_percent": 42.79647996414097,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85098496,
+          "idle_cpu_percent": 42.79647996414097,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [8216, 8908, 17924, 19992, 22280]; CPU of [8216, 8908, 17924, 19992, 22280] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 246.936455078125,
+      "first_diff_ms": 869.415255078125,
+      "launcher_ms": 247.7420000004713,
+      "idle_rss_bytes": 84893696,
+      "ack_ms": 247.7420000004713,
+      "ui_ready_ms": 246.936455078125,
+      "requested_content_ms": 869.415255078125,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84893696,
+          "idle_cpu_percent": 45.71326375954224,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84893696,
+          "idle_cpu_percent": 45.71326375954224,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [4672, 7468, 7716, 17516, 21004]; CPU of [4672, 7468, 7716, 17516, 21004] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 247.084426953125,
+      "first_diff_ms": 873.9156269531251,
+      "launcher_ms": 247.61170000056154,
+      "idle_rss_bytes": 85364736,
+      "ack_ms": 247.61170000056154,
+      "ui_ready_ms": 247.084426953125,
+      "requested_content_ms": 873.9156269531251,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85364736,
+          "idle_cpu_percent": 72.31005759342048,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85364736,
+          "idle_cpu_percent": 72.31005759342048,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [5436, 12604, 21120, 21164, 21568]; CPU of [5436, 12604, 21120, 21164, 21568] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 251.72397578125,
+      "first_diff_ms": 913.97117578125,
+      "launcher_ms": 253.28350000017963,
+      "idle_rss_bytes": 85311488,
+      "ack_ms": 253.28350000017963,
+      "ui_ready_ms": 251.72397578125,
+      "requested_content_ms": 913.97117578125,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85311488,
+          "idle_cpu_percent": 70.95641057816944,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85311488,
+          "idle_cpu_percent": 70.95641057816944,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [2488, 7444, 19844, 21940, 22496]; CPU of [2488, 7444, 19844, 21940, 22496] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 252.05567265624998,
+      "first_diff_ms": 912.2720726562501,
+      "launcher_ms": 253.40010000036273,
+      "idle_rss_bytes": 85192704,
+      "ack_ms": 253.40010000036273,
+      "ui_ready_ms": 252.05567265624998,
+      "requested_content_ms": 912.2720726562501,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85192704,
+          "idle_cpu_percent": 69.25980729484662,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85192704,
+          "idle_cpu_percent": 69.25980729484662,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [3256, 5256, 7588, 10196, 15064]; CPU of [3256, 5256, 7588, 10196, 15064] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 248.16352734375,
+      "first_diff_ms": 849.41792734375,
+      "launcher_ms": 249.04639999931533,
+      "idle_rss_bytes": 84770816,
+      "ack_ms": 249.04639999931533,
+      "ui_ready_ms": 248.16352734375,
+      "requested_content_ms": 849.41792734375,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84770816,
+          "idle_cpu_percent": 45.39297926295721,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84770816,
+          "idle_cpu_percent": 45.39297926295721,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [5264, 8352, 17924, 20644, 21044]; CPU of [5264, 8352, 17924, 20644, 21044] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 248.472015234375,
+      "first_diff_ms": 894.6486152343749,
+      "launcher_ms": 249.36260000049515,
+      "idle_rss_bytes": 85209088,
+      "ack_ms": 249.36260000049515,
+      "ui_ready_ms": 248.472015234375,
+      "requested_content_ms": 894.6486152343749,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85209088,
+          "idle_cpu_percent": 72.23982423349726,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85209088,
+          "idle_cpu_percent": 72.23982423349726,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [3516, 8216, 16744, 17208, 18848]; CPU of [3516, 8216, 16744, 17208, 18848] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 253.99824609375,
+      "first_diff_ms": 854.04064609375,
+      "launcher_ms": 254.77030000001832,
+      "idle_rss_bytes": 84643840,
+      "ack_ms": 254.77030000001832,
+      "ui_ready_ms": 253.99824609375,
+      "requested_content_ms": 854.04064609375,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84643840,
+          "idle_cpu_percent": 36.74522313276717,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84643840,
+          "idle_cpu_percent": 36.74522313276717,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [11024, 15652, 16136, 17660, 20064]; CPU of [11024, 15652, 16136, 17660, 20064] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 247.806107421875,
+      "first_diff_ms": 844.335707421875,
+      "launcher_ms": 248.74060000001919,
+      "idle_rss_bytes": 85176320,
+      "ack_ms": 248.74060000001919,
+      "ui_ready_ms": 247.806107421875,
+      "requested_content_ms": 844.335707421875,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85176320,
+          "idle_cpu_percent": 44.19320391958831,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85176320,
+          "idle_cpu_percent": 44.19320391958831,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [3544, 18960, 19620, 20056, 22500]; CPU of [3544, 18960, 19620, 20056, 22500] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 248.6198671875,
+      "first_diff_ms": 848.2248671875,
+      "launcher_ms": 249.46020000061253,
+      "idle_rss_bytes": 84676608,
+      "ack_ms": 249.46020000061253,
+      "ui_ready_ms": 248.6198671875,
+      "requested_content_ms": 848.2248671875,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84676608,
+          "idle_cpu_percent": 39.921157901383836,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84676608,
+          "idle_cpu_percent": 39.921157901383836,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [1556, 4088, 4752, 19964, 20296]; CPU of [1556, 4088, 4752, 19964, 20296] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 253.09564960937502,
+      "first_diff_ms": 877.768549609375,
+      "launcher_ms": 254.4316000003164,
+      "idle_rss_bytes": 84860928,
+      "ack_ms": 254.4316000003164,
+      "ui_ready_ms": 253.09564960937502,
+      "requested_content_ms": 877.768549609375,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84860928,
+          "idle_cpu_percent": 45.8052118884247,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84860928,
+          "idle_cpu_percent": 45.8052118884247,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [11132, 13080, 13928, 21368, 21444]; CPU of [11132, 13080, 13928, 21368, 21444] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 246.51857890625,
+      "first_diff_ms": 836.9387789062499,
+      "launcher_ms": 247.89569999938976,
+      "idle_rss_bytes": 85508096,
+      "ack_ms": 247.89569999938976,
+      "ui_ready_ms": 246.51857890625,
+      "requested_content_ms": 836.9387789062499,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 85508096,
+          "idle_cpu_percent": 47.16390248469933,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 85508096,
+          "idle_cpu_percent": 47.16390248469933,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [2760, 8768, 10124, 11876, 20640]; CPU of [2760, 8768, 10124, 11876, 20640] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 247.48460078124998,
+      "first_diff_ms": 848.33230078125,
+      "launcher_ms": 248.07760000021517,
+      "idle_rss_bytes": 84893696,
+      "ack_ms": 248.07760000021517,
+      "ui_ready_ms": 247.48460078124998,
+      "requested_content_ms": 848.33230078125,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84893696,
+          "idle_cpu_percent": 44.35284025653144,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84893696,
+          "idle_cpu_percent": 44.35284025653144,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [8348, 8948, 20888, 21104, 21284]; CPU of [8348, 8948, 20888, 21104, 21284] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 248.62570546875,
+      "first_diff_ms": 858.88620546875,
+      "launcher_ms": 249.55840000075113,
+      "idle_rss_bytes": 84930560,
+      "ack_ms": 249.55840000075113,
+      "ui_ready_ms": 248.62570546875,
+      "requested_content_ms": 858.88620546875,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84930560,
+          "idle_cpu_percent": 42.616040362540076,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84930560,
+          "idle_cpu_percent": 42.616040362540076,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [7072, 8740, 10460, 21228, 22340]; CPU of [7072, 8740, 10460, 21228, 22340] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 247.7863328125,
+      "first_diff_ms": 848.6006328125001,
+      "launcher_ms": 248.84299999939685,
+      "idle_rss_bytes": 84819968,
+      "ack_ms": 248.84299999939685,
+      "ui_ready_ms": 247.7863328125,
+      "requested_content_ms": 848.6006328125001,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84819968,
+          "idle_cpu_percent": 41.31619710613664,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84819968,
+          "idle_cpu_percent": 41.31619710613664,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [10576, 12364, 16928, 17156, 18580]; CPU of [10576, 12364, 16928, 17156, 18580] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 246.3432046875,
+      "first_diff_ms": 836.6093046875,
+      "launcher_ms": 247.66039999940404,
+      "idle_rss_bytes": 84963328,
+      "ack_ms": 247.66039999940404,
+      "ui_ready_ms": 246.3432046875,
+      "requested_content_ms": 836.6093046875,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84963328,
+          "idle_cpu_percent": 45.73248091920582,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84963328,
+          "idle_cpu_percent": 45.73248091920582,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [5612, 9476, 18884, 19040, 22472]; CPU of [5612, 9476, 18884, 19040, 22472] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 247.41237070312502,
+      "first_diff_ms": 891.992270703125,
+      "launcher_ms": 248.26590000066062,
+      "idle_rss_bytes": 84914176,
+      "ack_ms": 248.26590000066062,
+      "ui_ready_ms": 247.41237070312502,
+      "requested_content_ms": 891.992270703125,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84914176,
+          "idle_cpu_percent": 39.80240083361212,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84914176,
+          "idle_cpu_percent": 39.80240083361212,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [6464, 7100, 8264, 19616, 20028]; CPU of [6464, 7100, 8264, 19616, 20028] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 248.36161093750002,
+      "first_diff_ms": 849.3943109375,
+      "launcher_ms": 248.9791999996669,
+      "idle_rss_bytes": 84742144,
+      "ack_ms": 248.9791999996669,
+      "ui_ready_ms": 248.36161093750002,
+      "requested_content_ms": 849.3943109375,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84742144,
+          "idle_cpu_percent": 42.872594900636486,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84742144,
+          "idle_cpu_percent": 42.872594900636486,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [5308, 12328, 13048, 13280, 15228]; CPU of [5308, 12328, 13048, 13280, 15228] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    },
+    {
+      "first_frame_ms": 245.603598828125,
+      "first_diff_ms": 880.519598828125,
+      "launcher_ms": 246.8394999996235,
+      "idle_rss_bytes": 84860928,
+      "ack_ms": 246.8394999996235,
+      "ui_ready_ms": 245.603598828125,
+      "requested_content_ms": 880.519598828125,
+      "readiness_identity_bound": true,
+      "telemetry_schema": 2,
+      "build": {
+        "version": "1.1.0",
+        "revision": null,
+        "profile": "release",
+        "protocol": 5
+      },
+      "platform": {
+        "os": "windows",
+        "arch": "x86_64"
+      },
+      "resources": {
+        "gui_only": {
+          "rss_bytes": 84860928,
+          "idle_cpu_percent": 72.27144782941416,
+          "process_count": 1,
+          "components": [
+            "gui"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {}
+        },
+        "total": {
+          "rss_bytes": 84860928,
+          "idle_cpu_percent": 72.27144782941416,
+          "process_count": 1,
+          "components": [
+            "gui",
+            "gui_descendants"
+          ],
+          "unavailable": [],
+          "unavailable_reasons": {},
+          "incomplete_reasons": {
+            "gui_descendants": "processes exited during the window: [392, 1644, 5524, 7912, 22024]; CPU of [392, 1644, 5524, 7912, 22024] after the first reading is not counted"
+          },
+          "complete": false,
+          "notes": []
+        }
+      },
+      "measured_frames": 0.0,
+      "frame_cpu_total_ms": 0.0,
+      "max_frame_cpu_ms": 0.0,
+      "control_poll_ms": 250.0
+    }
+  ],
+  "summary": {
+    "first_frame_p95_ms": 258.685290625,
+    "first_diff_p95_ms": 913.97117578125,
+    "ui_ready_p95_ms": 258.685290625,
+    "requested_content_p95_ms": 913.97117578125,
+    "ack_p95_ms": 259.1182000005574,
+    "readiness_identity_bound": true,
+    "max_idle_rss_bytes": 85508096,
+    "resources": {
+      "runs": 30,
+      "measured_runs": 30,
+      "gui_only": {
+        "max_rss_bytes": 85508096,
+        "max_process_count": 1,
+        "p95_idle_cpu_percent": 72.27144782941416,
+        "cpu_measured_runs": 30,
+        "unavailable": []
+      },
+      "total": {
+        "max_rss_bytes": 84799488,
+        "max_process_count": 1,
+        "p95_idle_cpu_percent": 0.0,
+        "cpu_measured_runs": 1,
+        "unavailable": [],
+        "complete_runs": 1,
+        "measured_runs": 30,
+        "incomplete": [
+          "gui_descendants"
+        ]
+      }
+    },
+    "targets_met": {
+      "first_frame": true,
+      "first_diff": true,
+      "idle_rss": true
+    }
+  }
+}

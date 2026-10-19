@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import benchmark
-from benchmark import (WindowsSampler, await_gui, launch_sample,
+from benchmark import (WindowsSampler, await_gui, launch_arguments, launch_sample,
                        parse_report, percentile, summarize, wsl_command)
 import benchmark_telemetry as telemetry
 from benchmark_telemetry import Sample, content_ready, gui_identity, read_report
@@ -112,6 +112,19 @@ class BenchmarkEvidenceTests(unittest.TestCase):
         self.assertIn("FASTDIFF_BENCH_REPORT=/mnt/c/a b/report.json", command)
         self.assertNotIn("sh", command)
         self.assertNotIn("-c", command)
+
+    @unittest.skipIf(os.name == "nt", "Reads /proc")
+    def test_a_process_exiting_during_the_status_read_counts_as_gone(self) -> None:
+        for error in (FileNotFoundError(), ProcessLookupError()):
+            with patch("benchmark.Path.read_text", side_effect=error):
+                self.assertEqual(benchmark.process_info(1), (False, 0))
+
+    def test_document_mode_opens_the_file_without_a_repository_argument(self) -> None:
+        args = argparse.Namespace(launcher="viewer", repository="/repo", file="/repo/a b.rs")
+        self.assertEqual(launch_arguments(args),
+                         ["viewer", "/repo", "--file", "/repo/a b.rs"])
+        args.document = True
+        self.assertEqual(launch_arguments(args), ["viewer", "/repo/a b.rs"])
 
     def test_rejected_stale_telemetry_never_authorizes_process_cleanup(self) -> None:
         args = argparse.Namespace(launcher="viewer", repository="/repo", file="a.rs",
