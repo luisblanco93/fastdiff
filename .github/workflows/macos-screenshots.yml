@@ -1,0 +1,35 @@
+name: macOS screenshots
+
+# Throwaway: builds the macOS release binary, drives the app on a fake demo repository,
+# and uploads the README screenshots. Builds only; runs no tests.
+on:
+  push:
+    branches: ['feat/user/luis/refresh-readme-screenshots']
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - name: Prepare demo repository
+        run: |
+          python3 .github/scripts/make-demo-repo.py "$HOME/code/meridian" "$RUNNER_TEMP/meridian-remote.git"
+          git -C "$HOME/code/meridian" status --short
+          git -C "$HOME/code/meridian" reflog
+      - name: Build release
+        run: cargo build --release --locked --workspace
+      - name: Drive the app
+        run: bash .github/scripts/screenshots-macos.sh "$HOME/code/meridian" "$RUNNER_TEMP/shots"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-screenshots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: warn
