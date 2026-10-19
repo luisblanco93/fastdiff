@@ -6,6 +6,10 @@ use std::{fs, process::Command};
 
 /// Shorter than the 2 s poll, so only the re-read after the watcher exists can satisfy it.
 const FRESHNESS_BOUND: Duration = Duration::from_millis(1500);
+/// Longer than the 2 s poll, so a branch reported on every tick can never look settled.
+const SETTLE_QUIET: Duration = Duration::from_millis(2500);
+/// How long replayed events may keep the branch being reported before the test calls it polling.
+const SETTLE_BOUND: Duration = Duration::from_secs(12);
 
 fn row_is(event: &Event, text: &str) -> bool {
     // A re-read can land between the truncate and the write of `fs::write`, so no row is possible.
@@ -74,10 +78,27 @@ fn an_idle_document_does_not_ask_git_for_the_branch_on_every_poll() {
     );
     wait_event(&worker, 0, |event| row_is(event, "first"));
     // The first poll reported the branch. Events raised while the watcher registers (some
-    // platforms replay them) are a legitimate reason to poll Git, so let them settle first;
-    // two more 2 s polls still fall inside the window.
-    thread::sleep(Duration::from_millis(700));
-    worker.drain_events();
+    // platforms replay them, FSEvents on a loaded macOS runner more than a second late) are a
+    // legitimate reason to poll Git. Settle on quiet instead of a fixed delay: wait until no
+    // branch was reported for longer than the 2 s poll, so a replay burst can end but polling on
+    // every tick (a report every 2 s) never goes quiet and fails here.
+    let settled_from = Instant::now();
+    let mut quiet_since = settled_from;
+    while quiet_since.elapsed() < SETTLE_QUIET {
+        assert!(
+            settled_from.elapsed() < SETTLE_BOUND,
+            "the branch was still being reported {:?} after the first content",
+            settled_from.elapsed()
+        );
+        if worker
+            .drain_events()
+            .iter()
+            .any(|event| matches!(event, Event::Branch { .. }))
+        {
+            quiet_since = Instant::now();
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
     let window = Instant::now() + Duration::from_millis(4500);
     let mut later_branches = 0;
     while Instant::now() < window {
