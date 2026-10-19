@@ -19,11 +19,8 @@
   <a href="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml"><img alt="CI" src="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml/badge.svg"></a>
 </p>
 
-<p align="center">
-  <img src="docs/assets/review.png" alt="fastdiff showing a side-by-side diff with separate Staged and Unstaged sections and a changed-file tree" width="900">
-</p>
-
-<!-- Walkthrough video: upload the MP4 in the GitHub editor and paste its user-attachments URL on its own line here. -->
+<!-- Walkthrough video: drag the MP4 into the GitHub editor, then replace this comment with
+<video src="https://github.com/user-attachments/assets/<id>" controls></video> -->
 
 > ## 🤖 Using a coding agent? Paste this one prompt.
 >
