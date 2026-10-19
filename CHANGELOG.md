@@ -8,6 +8,7 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 - The toolbar and tab strip are redesigned. Each tab shows a folder or document icon and, for duplicate names, its parent folder; the active tab is filled and every tab has a dimmed close control. The window-wide UI size, zoom and Help controls sit at the right end of the tab row. The toolbar keeps search and the Full file, Git Diff and Git views, and breaks into two rows below 620 px. A path row always shows the path with the Side by side and Unified toggle and Copy. Branch and path labels are selectable.
 - Opening a file directly (`dff <file>`) inside a Git repository shows its content sooner: the file is shown before the repository is watched, which saves about 140 ms on Linux and 230 ms on Windows in a repository with thousands of directories. A file left open in a repository also uses less CPU, because the branch and Git status are no longer refreshed every two seconds while only the file is shown.
+- Large text documents use less memory on Linux: memory freed while a document loads is returned to the system, so ten open 8 MB documents take about 16% less memory (about 90 MiB) and each additional open document costs about 34 MiB instead of 45 MiB.
 
 ## [1.1.0] - 2026-10-15
 
