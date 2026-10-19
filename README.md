@@ -19,8 +19,7 @@
   <a href="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml"><img alt="CI" src="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml/badge.svg"></a>
 </p>
 
-<!-- Walkthrough video: drag the MP4 into the GitHub editor, then replace this comment with
-<video src="https://github.com/user-attachments/assets/<id>" controls></video> -->
+<video src="https://github.com/user-attachments/assets/8d859cce-fcc7-49c2-9c0e-0731e10b6fbf" controls></video>
 
 > ## 🤖 Using a coding agent? Paste this one prompt.
 >
