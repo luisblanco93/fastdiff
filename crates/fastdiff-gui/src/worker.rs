@@ -21,6 +21,7 @@ use crate::{
 };
 
 mod cache;
+mod memory;
 mod watch;
 use cache::PreparedCache;
 mod reflog;
@@ -1111,7 +1112,13 @@ fn run_with_discovery(
                         {
                             Arc::clone(current)
                         } else {
-                            Arc::new(PreparedDocument::from_text(text.path, text.text, &token))
+                            let large = text.text.len() >= memory::TRIM_THRESHOLD_BYTES;
+                            let prepared =
+                                PreparedDocument::from_text(text.path, text.text, &token);
+                            if large {
+                                memory::release_freed_memory();
+                            }
+                            Arc::new(prepared)
                         };
                         if token.is_cancelled() {
                             continue;
