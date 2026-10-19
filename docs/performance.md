@@ -302,3 +302,35 @@ When measurement is explicitly requested, extend the LIT-1 Git-counting recipe a
 4. Repeat with linked worktrees and separate Git directories, atomic saves, missing/recreated document parents, and failed watcher coverage. Observe registrations/notifications directly so periodic fallback cannot mask broken watching.
 
 Preserve revisions, binary hashes, fixture sizes, Git/Rust/OS/WSL versions, hardware, commands, raw samples and failures. Metadata scans scale with ref count; fingerprints provide practical consistency rather than transactional isolation. Layouts without reliable fingerprints reread the loaded prefix and may have higher repeated-read cost. Benchmarks, coverage, full suites and platform smoke checks remain deferred. Performance measurements are optional follow-up work and do not block LIT-9 implementation completion after focused correctness tests and review; no measured speedup is established.
+
+## Direct file opens and idle polling (LIT-34)
+
+A standalone document (`fastdiff <file>`) now builds its filesystem watcher after the first content is shown, as a repository review already did (LIT-26), and re-reads the document as soon as the watcher exists so an edit made in between is not left to the two-second poll. While a document is open, the branch and Git status are refreshed on events, explicit refreshes and every 10 seconds instead of every poll (WSL and a failed watcher raise no events, so there Git runs every 10 seconds); the file itself is still re-read every two seconds. Full-file preparation builds its single view directly, UTF-8 decoding reuses the read buffer, and the fallback-font scan borrows file names.
+
+`scripts/benchmark.py --document` opens `--file` (an absolute path) as a standalone document instead of a file of `--repository`; it is only valid for the plain native launch benchmark. Compare identical fixtures: the same file outside Git, in a small repository, and in a repository with thousands of directories.
+
+Recorded 2026-10-19, release builds, 30 cold opens per case (a few cases were shorter, noted below), sequential rather than interleaved before/after runs. Time to requested content, median:
+
+| Case | Before | After | Same file outside Git |
+| --- | ---: | ---: | ---: |
+| Linux (WSL2/WSLg), repository with 6,000 directories | 233 ms | 92 ms | 88 ms |
+| Linux, small repository | 144 ms (13 samples) | 94 ms | 88 ms |
+| Windows native, repository with 6,000 directories | 581 ms | 347 ms | 274 ms |
+
+First frame is unchanged (about 72 ms on Linux, 180 ms on Windows). On Windows about 73 ms remains above the outside-Git case; the Git discovery before the window reports its root and the branch lookup before the first read are still synchronous.
+
+Steady-state idle CPU on Linux with a document open (30 s window after 6 s, GUI process plus reaped Git children, benchmark telemetry enabled in all runs so absolute values are inflated):
+
+| Case | Before | After |
+| --- | ---: | ---: |
+| Outside Git | 2.6% | 2.5% |
+| Small repository | 6.0% | 3.2% |
+| Repository with 6,000 directories | 16.3% | 5.1% |
+
+Measured and left unchanged:
+
+- **Full-document preparation and decoding:** about 17 ms (9%) faster at the median on an 88,000-line 8.6 MiB file on Linux (195 ms with 16 samples before, 178 ms after); no difference for small files. Peak memory was not compared.
+- **First fallback-font install (Windows, `msyh.ttc`, 19.7 MB):** about 5 ms to read the file, 5 ms to install it and 3 ms for the first frame afterwards, so well under a perceptible pause with a warm file cache. Moving the read off the UI thread is not warranted on this evidence. A cold disk, other platforms, and the glyph scan of a large covered-accent document (a cost that stays on every change) were not measured.
+- **Managed `dff` imports:** importing the runtime costs about 21 ms, 13 ms of it `urllib.request`, against about 10 ms for a bare interpreter. Making the maintenance imports lazy would save at most that, so it was not done.
+
+Not measured: macOS, interactive stalls from the font install, Windows idle CPU, and the interleaved before/after comparison the README method asks for. The repository-review path was not changed; its native Windows README row was re-recorded separately (README, `docs/benchmark-windows-native-2026-10-19.json`).
