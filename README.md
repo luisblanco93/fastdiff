@@ -19,11 +19,11 @@
   <a href="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml"><img alt="CI" src="https://github.com/luisblanco93/fastdiff/actions/workflows/build.yml/badge.svg"></a>
 </p>
 
-<p align="center">
-  <img src="docs/assets/review.png" alt="fastdiff showing a side-by-side diff with separate Staged and Unstaged sections and a changed-file tree" width="900">
-</p>
+<video src="https://github.com/user-attachments/assets/8d859cce-fcc7-49c2-9c0e-0731e10b6fbf" controls></video>
 
-<!-- Walkthrough video: upload the MP4 in the GitHub editor and paste its user-attachments URL on its own line here. -->
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/7b924d52-b026-42c0-b8b8-7fd191256856" alt="fastdiff showing a side-by-side diff with separate Staged and Unstaged sections and a changed-file tree" width="900">
+</p>
 
 > ## 🤖 Using a coding agent? Paste this one prompt.
 >
@@ -83,12 +83,12 @@ dff . --theme                # Material file icons and colored reflog
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/unpushed.png" alt="Unpushed view listing the net change of local commits"><br><sub><b>Unpushed.</b> The net change of your local commits against the last fetched upstream, or against your other branches when there is none.</sub></td>
-    <td width="50%"><img src="docs/assets/reflog.png" alt="Reflog panel below the file tree showing HEAD history"><br><sub><b>Reflog.</b> HEAD history under the file tree, <kbd>Ctrl</kbd>+<kbd>5</kbd>.</sub></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/28f3ab3b-0e2b-4af4-b4ae-58704762ab4a" alt="Unpushed view listing the net change of local commits"><br><sub><b>Unpushed.</b> The net change of your local commits against the last fetched upstream, or against your other branches when there is none.</sub></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/745065a8-343f-409f-a4d3-29b371219279" alt="Reflog panel below the file tree showing HEAD history"><br><sub><b>Reflog.</b> HEAD history under the file tree, <kbd>Ctrl</kbd>+<kbd>5</kbd>.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/assets/search.png" alt="Search highlighting every match across the diff"><br><sub><b>Search.</b> <kbd>Ctrl</kbd>+<kbd>F</kbd> highlights every match; <kbd>F3</kbd> jumps between them.</sub></td>
-    <td width="50%"><img src="docs/assets/shortcuts.png" alt="Keyboard shortcut reference opened with F1"><br><sub><b>Keyboard first.</b> <kbd>F1</kbd> lists every shortcut.</sub></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/6fe5999f-de3d-4aab-bc54-65388abc399c" alt="Search highlighting every match across the diff"><br><sub><b>Search.</b> <kbd>Ctrl</kbd>+<kbd>F</kbd> highlights every match; <kbd>F3</kbd> jumps between them.</sub></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/e6aff4e6-8948-4a00-b9a2-44d5cf1ba3f7" alt="Keyboard shortcut reference opened with F1"><br><sub><b>Keyboard first.</b> <kbd>F1</kbd> lists every shortcut.</sub></td>
   </tr>
 </table>
 
