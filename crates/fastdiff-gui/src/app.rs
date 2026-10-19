@@ -671,9 +671,13 @@ impl Fastdiff {
             if !self.fallback_fonts.changed(index, files, document) {
                 continue;
             }
-            let paths = tab.files.iter().map(|file| file.path.display());
-            let names: Vec<String> = paths.collect();
-            let mut texts: Vec<&str> = names.iter().map(String::as_str).collect();
+            // Valid UTF-8 names are borrowed; only a lossy conversion allocates.
+            let names: Vec<_> = tab
+                .files
+                .iter()
+                .map(|file| String::from_utf8_lossy(&file.path.0))
+                .collect();
+            let mut texts: Vec<&str> = names.iter().map(|name| name.as_ref()).collect();
             texts.push(&tab.root);
             if let Some(presentation) = &tab.presentation {
                 for comparison in &presentation.document.document.comparisons {

@@ -39,14 +39,15 @@ pub fn read_document(path: impl AsRef<Path>, cancel: &CancelToken) -> Result<Tex
     if cancel.is_cancelled() {
         return Err(Error::Cancelled);
     }
-    let text = decode_document(&bytes)?;
+    let text = decode_document(bytes)?;
     Ok(TextDocument {
         path: std::fs::canonicalize(path)?.to_string_lossy().into_owned(),
         text,
     })
 }
 
-fn decode_document(bytes: &[u8]) -> Result<String> {
+/// Takes the buffer so the ordinary UTF-8 case becomes the string without a copy.
+fn decode_document(mut bytes: Vec<u8>) -> Result<String> {
     if bytes.len() > MAX_SOURCE_BYTES {
         return Err(Error::Document(
             "Document exceeds the 10 MiB loading limit".into(),
@@ -54,6 +55,8 @@ fn decode_document(bytes: &[u8]) -> Result<String> {
     }
     let encoding_error =
         || Error::Document("Unsupported document encoding; use UTF-8 or BOM-marked UTF-16".into());
+    let binary_error =
+        || Error::Document("Binary content cannot be viewed as a text document".into());
     let text = if bytes.starts_with(&[0xff, 0xfe]) || bytes.starts_with(&[0xfe, 0xff]) {
         let little_endian = bytes[0] == 0xff;
         if !(bytes.len() - 2).is_multiple_of(2) {
@@ -70,27 +73,27 @@ fn decode_document(bytes: &[u8]) -> Result<String> {
                 }
             })
             .collect::<Vec<_>>();
-        String::from_utf16(&units).map_err(|_| encoding_error())?
-    } else {
-        let bytes = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes);
-        if bytes.contains(&0) {
-            return Err(Error::Document(
-                "Binary content cannot be viewed as a text document".into(),
-            ));
+        let text = String::from_utf16(&units).map_err(|_| encoding_error())?;
+        if text.contains('\0') {
+            return Err(binary_error());
         }
-        String::from_utf8(bytes.to_vec()).map_err(|_| encoding_error())?
+        text
+    } else {
+        if bytes.starts_with(&[0xef, 0xbb, 0xbf]) {
+            bytes.drain(..3);
+        }
+        // A NUL byte in valid UTF-8 is a NUL character, so this one scan covers both.
+        if bytes.contains(&0) {
+            return Err(binary_error());
+        }
+        String::from_utf8(bytes).map_err(|_| encoding_error())?
     };
-    if text.contains('\0') {
-        return Err(Error::Document(
-            "Binary content cannot be viewed as a text document".into(),
-        ));
-    }
     if text.len() > MAX_SOURCE_BYTES {
         return Err(Error::Document(
             "Decoded document exceeds the 10 MiB loading limit".into(),
         ));
     }
-    if text.lines().count() > MAX_DIFF_ROWS {
+    if text.lines().nth(MAX_DIFF_ROWS).is_some() {
         return Err(Error::Document(
             "Document exceeds the 100,000-line loading limit".into(),
         ));
@@ -104,29 +107,49 @@ mod tests {
     #[test]
     fn text_encodings_and_binary_rejection() {
         for bytes in [b"hello\n".as_slice(), b"\xef\xbb\xbfhello\n"] {
-            assert_eq!(decode_document(bytes).unwrap(), "hello\n");
+            assert_eq!(decode_document(bytes.to_vec()).unwrap(), "hello\n");
         }
         assert_eq!(
-            decode_document(&[0xff, 0xfe, b'A', 0, 0xac, 0x20]).unwrap(),
+            decode_document(vec![0xff, 0xfe, b'A', 0, 0xac, 0x20]).unwrap(),
             "A€"
         );
         assert_eq!(
-            decode_document(&[0xfe, 0xff, 0, b'A', 0x20, 0xac]).unwrap(),
+            decode_document(vec![0xfe, 0xff, 0, b'A', 0x20, 0xac]).unwrap(),
             "A€"
         );
         assert!(
-            decode_document(b"a\0b")
+            decode_document(b"a\0b".to_vec())
                 .unwrap_err()
                 .to_string()
                 .contains("Binary")
         );
         assert!(
-            decode_document(&[0xff])
+            decode_document(vec![0xff])
                 .unwrap_err()
                 .to_string()
                 .contains("encoding")
         );
-        assert!(decode_document(&[0xff, 0xfe, 0]).is_err());
+        assert!(decode_document(vec![0xff, 0xfe, 0]).is_err());
+        assert!(
+            decode_document(b"\xef\xbb\xbfa\0b".to_vec())
+                .unwrap_err()
+                .to_string()
+                .contains("Binary")
+        );
+        assert!(
+            decode_document(vec![0xff, 0xfe, b'A', 0, 0, 0])
+                .unwrap_err()
+                .to_string()
+                .contains("Binary")
+        );
+        assert!(
+            decode_document(b"\xef\xbb\xbf\xff".to_vec())
+                .unwrap_err()
+                .to_string()
+                .contains("encoding")
+        );
+        assert_eq!(decode_document(Vec::new()).unwrap(), "");
+        assert_eq!(decode_document(b"\xef\xbb\xbf".to_vec()).unwrap(), "");
     }
     #[cfg(unix)]
     #[test]
@@ -147,18 +170,18 @@ mod tests {
     #[test]
     fn limits_are_explicit() {
         assert!(
-            decode_document(&vec![b'x'; MAX_SOURCE_BYTES + 1])
+            decode_document(vec![b'x'; MAX_SOURCE_BYTES + 1])
                 .unwrap_err()
                 .to_string()
                 .contains("10 MiB")
         );
         assert!(
-            decode_document("x\n".repeat(MAX_DIFF_ROWS + 1).as_bytes())
+            decode_document("x\n".repeat(MAX_DIFF_ROWS + 1).into_bytes())
                 .unwrap_err()
                 .to_string()
                 .contains("100,000")
         );
-        assert!(decode_document("x\n".repeat(MAX_DIFF_ROWS).as_bytes()).is_ok());
+        assert!(decode_document("x\n".repeat(MAX_DIFF_ROWS).into_bytes()).is_ok());
     }
     #[test]
     fn rereads_replacement_and_reports_disappearance() {
