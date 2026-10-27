@@ -5,6 +5,8 @@ use fastdiff_core::View;
 use fastdiff_gui::{app::Fastdiff, benchmark::Benchmark, settings::SettingsStore};
 use std::io::Write;
 
+const APP_ICON_PNG: &[u8] = include_bytes!("../assets/icon/fastdiff-icon-256.png");
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("fastdiff-gui: {error}");
@@ -64,12 +66,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         SettingsStore::open_default()
     };
+    let icon = eframe::icon_data::from_png_bytes(APP_ICON_PNG)?;
     let options = eframe::NativeOptions {
         renderer: eframe::Renderer::Glow,
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1100.0, 720.0])
             .with_min_inner_size([640.0, 400.0])
-            .with_title("fastdiff"),
+            .with_title("fastdiff")
+            .with_icon(icon),
         ..Default::default()
     };
     eframe::run_native(
