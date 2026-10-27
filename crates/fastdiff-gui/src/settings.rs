@@ -306,41 +306,37 @@ mod tests {
         assert_eq!(Settings::parse(r#"{"zoom":0.1}"#).zoom, MIN_ZOOM);
         assert_eq!(Settings::parse(r#"{"zoom":9}"#).zoom, MAX_ZOOM);
         assert_eq!(Settings::parse(r#"{"zoom":1e999}"#).zoom, 1.0);
+        // Absolute on every platform: "/xdg" has no drive letter on Windows.
+        let base = std::env::temp_dir();
+        let dir = |name: &str| base.join(name).to_string_lossy().into_owned();
+        let (xdg, home, appdata) = (dir("xdg"), dir("home"), dir("appdata"));
         let path = |os, pairs: &[(&str, &str)]| config_path(os, env(pairs));
+        let file = |root: &Path| Some(root.join("fastdiff").join("settings.json"));
         assert_eq!(
-            path(
-                Os::Linux,
-                &[("XDG_CONFIG_HOME", "/xdg"), ("HOME", "/home/u")]
-            ),
-            Some(PathBuf::from("/xdg/fastdiff/settings.json"))
+            path(Os::Linux, &[("XDG_CONFIG_HOME", &xdg), ("HOME", &home)]),
+            file(Path::new(&xdg))
+        );
+        let home_config = file(&Path::new(&home).join(".config"));
+        for relative_or_empty in ["relative", ""] {
+            assert_eq!(
+                path(
+                    Os::Linux,
+                    &[("XDG_CONFIG_HOME", relative_or_empty), ("HOME", &home)]
+                ),
+                home_config
+            );
+        }
+        assert_eq!(
+            path(Os::MacOs, &[("HOME", &home)]),
+            file(&Path::new(&home).join("Library/Application Support"))
         );
         assert_eq!(
-            path(
-                Os::Linux,
-                &[("XDG_CONFIG_HOME", "relative"), ("HOME", "/home/u")]
-            ),
-            Some(PathBuf::from("/home/u/.config/fastdiff/settings.json"))
-        );
-        assert_eq!(
-            path(Os::Linux, &[("XDG_CONFIG_HOME", ""), ("HOME", "/home/u")]),
-            Some(PathBuf::from("/home/u/.config/fastdiff/settings.json"))
-        );
-        assert_eq!(
-            path(Os::MacOs, &[("HOME", "/Users/u")]),
-            Some(PathBuf::from(
-                "/Users/u/Library/Application Support/fastdiff/settings.json"
-            ))
-        );
-        assert_eq!(
-            path(
-                Os::Windows,
-                &[("APPDATA", "C:\\Users\\u\\AppData\\Roaming")]
-            ),
-            Some(PathBuf::from("C:\\Users\\u\\AppData\\Roaming").join("fastdiff/settings.json"))
+            path(Os::Windows, &[("APPDATA", &appdata)]),
+            file(Path::new(&appdata))
         );
         assert_eq!(path(Os::Linux, &[]), None);
-        assert_eq!(path(Os::MacOs, &[("XDG_CONFIG_HOME", "/x")]), None);
-        assert_eq!(path(Os::Windows, &[("HOME", "/h")]), None);
+        assert_eq!(path(Os::MacOs, &[("XDG_CONFIG_HOME", &xdg)]), None);
+        assert_eq!(path(Os::Windows, &[("HOME", &home)]), None);
     }
 
     #[test]
