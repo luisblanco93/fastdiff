@@ -4,6 +4,34 @@ This page indexes validation evidence for fastdiff. Record evidence for a releas
 
 ## Current release
 
+### Release 1.3.0
+
+Recorded 2026-10-27 from revision `a8b3e9f35faa52a6dac843688728453b9e5dfa8b`. Tagged CI run: [40581234761](https://github.com/luisblanco93/fastdiff/actions/runs/40581234761), dispatched by the `v1.3.0` tag push.
+
+Two failures of the local gate led to test-only fixes on `main` before the release PR: the idle-document branch test failed under load in the default-parallelism Linux run (#37, LIT-37) and a settings path test used Linux fixture paths that are not absolute on Windows (#38, LIT-38). Evidence below is for the commit above after both fixes.
+
+#### Checks run
+- CI on Ubuntu 22.04, macOS 14 (Apple Silicon), and Windows (Rust 1.90, Python 3.11): fmt, Clippy `-D warnings`, workspace and script tests, release builds, native window smoke checks, and packaging passed (`linux`, `macos`, `windows`, `windows-package`, `release-assets`, `draft-release`, `result` all succeeded). The `draft-release` job created the draft (commit `a8b3e9f`, four assets) and verified checksums, archive contents, and byte-identical paired WSL helpers.
+- Local gate on Linux/WSL2 at `8a4c85d` (the release commit before the squash merge; Rust 1.90.0, Python 3.11): fmt, Clippy `--locked -D warnings`, `cargo test --workspace --locked` (`fastdiff-gui` 354 passed, 2 ignored), `cargo build --release --locked --workspace`, and 298 Python tests (3 skipped).
+- Local gate on native Windows (MSVC, Rust 1.90) at `8a4c85d`: fmt, Clippy `--locked -D warnings`, `cargo test --workspace --locked -- --test-threads=2` (`fastdiff-gui` 345 passed, 1 ignored), release build, and `scripts/test-package-windows.ps1`.
+- Downloaded the three archives and `SHA256SUMS` from the published release and verified them with `sha256sum -c`; checked each archive's file list (binaries plus `licenses/material-icons-LICENSE` and `licenses/color-themes-NOTICE`; the Windows archive also has `wsl/fastdiff`). The `wsl/fastdiff` helper in the Windows archive has the same SHA-256 as the Linux `bin/fastdiff` (`fe8bd4a5709de0ccb5743d04633fff8e50ecbb28c45fb41d789ca827e3c40efc`).
+- Linux x86_64 archive on WSL2 Ubuntu: `fastdiff --version` printed `fastdiff 1.3.0 (helper protocol 5)` and `--help` listed `--color-theme`.
+- A debug build of the same source (before the version bump) was opened on native Linux and, with its matching WSL helper (protocol 5), on native Windows; the Theme menu, hover preview, and the Default theme rename were tried by hand.
+
+#### Artifact verification
+| Archive | Bytes | SHA-256 |
+|---|---:|---|
+| `fastdiff-1.3.0-linux-x64.tar.gz` | 5,564,216 | `72403778d2e5c9d5271f402e356162568ba6f0052b216e56a9d5b889df994a57` |
+| `fastdiff-1.3.0-macos-arm64.tar.gz` | 3,559,658 | `1daace3763ca8e78bd3cfc2790d980c37762dc81ff91a8ddbd85a44ef33192e3` |
+| `fastdiff-1.3.0-windows-x64.zip` | 4,096,773 | `6b0be12cb291da9c01f5f4409e4e78ce2e76e62bee73a1301d2b1e5f1bae2214` |
+
+#### Limits
+- No interactive window was opened from the release archives themselves; the hand checks used debug builds of the same source. The macOS archive was not run on a Mac, and the macOS binaries are not signed or notarized.
+- Follow-system theme switching needs a platform that reports the system theme (Windows, macOS). It was covered by unit tests with a simulated system theme, not by changing the OS appearance on a real Windows or macOS machine, and it is unavailable on Linux X11 and Wayland.
+- Performance was not measured. Theme lookups, settings writes, and the extra function and type highlight spans add small per-frame and per-line work; no before and after numbers exist.
+- The 1.3.0 idle-document branch test failure under load (#37) was not reproduced on an idle machine; the fix removes a redundant fixed time window, and the test still fails when Git is polled on every tick.
+- Release 1.2.0 has no section on this page.
+
 ### Release 1.1.0
 
 Recorded 2026-10-15 from revision `704591def29393a112c1f3efdbbfff1cce415c22`. Tagged CI run: [38816468381](https://github.com/luisblanco93/fastdiff/actions/runs/38816468381), dispatched by the `v1.1.0` tag push.
