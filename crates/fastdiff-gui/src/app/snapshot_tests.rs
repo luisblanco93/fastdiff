@@ -223,6 +223,7 @@ fn editing_search_clears_highlights_until_new_results_arrive() {
         benchmark: Benchmark::new(false),
         help_open: false,
         fallback_fonts: Default::default(),
+        appearance: Default::default(),
         retired_workers: Vec::new(),
     };
     let mut harness = Harness::new_state(|context, app| app.show(context), app);
@@ -248,6 +249,7 @@ fn changed_forwarded_file_clears_previous_search_results() {
         benchmark: Benchmark::new(false),
         help_open: false,
         fallback_fonts: Default::default(),
+        appearance: Default::default(),
         retired_workers: Vec::new(),
     };
     app.tabs[0].search_hits = vec![0, 1];

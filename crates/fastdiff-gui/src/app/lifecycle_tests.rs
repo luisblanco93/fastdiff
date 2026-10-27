@@ -13,6 +13,7 @@ fn viewer(tabs: usize) -> Fastdiff {
         benchmark: Benchmark::new(false),
         help_open: false,
         fallback_fonts: Default::default(),
+        appearance: Default::default(),
         retired_workers: Vec::new(),
     }
 }

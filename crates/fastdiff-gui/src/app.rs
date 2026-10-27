@@ -1,6 +1,7 @@
 use crate::{
     benchmark::{Benchmark, TabLocus, TabState},
     render::DiffPresentation,
+    settings::SettingsStore,
     sidebar::FileTree,
     state::Preferences,
     theme::ThemeId,
@@ -104,6 +105,7 @@ mod reflog;
 mod reflog_paging_tests;
 mod repository_identity;
 mod shortcuts;
+mod theme_menu;
 
 #[cfg(test)]
 mod responsive_tests;
@@ -620,6 +622,7 @@ pub struct Fastdiff {
     benchmark: Benchmark,
     help_open: bool,
     fallback_fonts: crate::fallback_fonts::Watch,
+    appearance: theme_menu::Appearance,
 }
 
 /// fastdiff has one dark theme. `set_visuals` only writes the active theme, so pin the theme
@@ -638,8 +641,10 @@ impl Fastdiff {
         server: IpcServer,
         context: &egui::Context,
         mut benchmark: Benchmark,
+        store: SettingsStore,
     ) -> Self {
         apply_theme(context);
+        context.set_zoom_factor(store.settings().zoom);
         egui_extras::install_image_loaders(context);
         let wake_context = context.clone();
         server.set_wake_callback(move || wake_context.request_repaint());
@@ -657,6 +662,7 @@ impl Fastdiff {
             benchmark,
             help_open: false,
             fallback_fonts: crate::fallback_fonts::Watch::default(),
+            appearance: theme_menu::Appearance { store },
         }
     }
 
@@ -832,6 +838,7 @@ impl Fastdiff {
 
     pub fn show(&mut self, context: &egui::Context) {
         self.benchmark.rendered(false);
+        self.sync_zoom(context);
         self.shortcuts(context);
         let top_frame = egui::Frame::side_top_panel(&context.style()).inner_margin(egui::Margin {
             left: 8,
@@ -1614,6 +1621,7 @@ impl Drop for Fastdiff {
         for worker in self.retired_workers.drain(..) {
             join_worker(worker);
         }
+        self.appearance.store.flush();
         self.server.take();
         self.benchmark.finish();
     }

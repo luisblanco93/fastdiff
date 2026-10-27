@@ -127,6 +127,7 @@ fn viewer() -> Fastdiff {
         benchmark: Benchmark::new(false),
         help_open: false,
         fallback_fonts: Default::default(),
+        appearance: Default::default(),
         retired_workers: Vec::new(),
     }
 }
@@ -1801,7 +1802,13 @@ fn startup_and_ipc_requests_enable_window_theme() {
             theme: startup_theme,
             ..fixture().request
         };
-        let mut app = Fastdiff::new(request.clone(), server, &context, Benchmark::new(false));
+        let mut app = Fastdiff::new(
+            request.clone(),
+            server,
+            &context,
+            Benchmark::new(false),
+            SettingsStore::memory(),
+        );
         assert_eq!(app.preferences.theme, startup_theme);
         let forwarded = OpenRequest {
             theme: true,
@@ -1930,4 +1937,44 @@ fn native_title_bar_is_pinned_to_dark_with_the_theme() {
 
     let commands = &output.viewport_output[&egui::ViewportId::ROOT].commands;
     assert!(commands.contains(&egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark)));
+}
+
+#[test]
+fn zoom_changes_are_saved_once_and_saved_zoom_is_restored_at_startup() {
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(900.0, 500.0))
+        .build_state(|context, app| app.show(context), viewer());
+    harness.run();
+    assert_eq!(harness.state().appearance.store.saves(), 0);
+
+    harness.ctx.set_zoom_factor(1.3);
+    harness.run();
+    harness.run();
+    let store = &harness.state().appearance.store;
+    assert_eq!(store.saves(), 1);
+    assert!((store.settings().zoom - 1.3).abs() < 1e-6);
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    std::fs::write(&path, r#"{"zoom": 1.5}"#).unwrap();
+    let ipc_directory = tempfile::tempdir().unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(ipc_directory.path(), std::fs::Permissions::from_mode(0o700))
+            .unwrap();
+    }
+    let server = IpcServer::bind_at(ipc_directory.path()).unwrap().unwrap();
+    let context = egui::Context::default();
+    let app = Fastdiff::new(
+        fixture().request,
+        server,
+        &context,
+        Benchmark::new(false),
+        SettingsStore::at(path),
+    );
+    // egui applies a requested zoom factor at the start of the next pass.
+    let _ = context.run(egui::RawInput::default(), |_| {});
+    assert!((context.zoom_factor() - 1.5).abs() < 1e-6);
+    assert_eq!(app.appearance.store.saves(), 0);
 }
