@@ -4,7 +4,6 @@ use crate::{
     settings::SettingsStore,
     sidebar::FileTree,
     state::Preferences,
-    theme::ThemeId,
     worker::{Event, Worker},
 };
 use fastdiff_cli::{IpcServer, OpenRequest, OpenTarget};
@@ -106,6 +105,8 @@ mod reflog_paging_tests;
 mod repository_identity;
 mod shortcuts;
 mod theme_menu;
+#[cfg(test)]
+mod theme_menu_tests;
 
 #[cfg(test)]
 mod responsive_tests;
@@ -625,16 +626,6 @@ pub struct Fastdiff {
     appearance: theme_menu::Appearance,
 }
 
-/// fastdiff has one dark theme. `set_visuals` only writes the active theme, so pin the theme
-/// first; otherwise a light system appearance shows egui's light chrome around dark diff panes.
-fn apply_theme(context: &egui::Context) {
-    context.set_theme(egui::Theme::Dark);
-    context.set_visuals(ThemeId::Fastdiff.theme().visuals());
-    crate::theme::install(context, crate::theme::Active::default());
-    // The native title bar is outside egui's visuals and follows the system appearance.
-    context.send_viewport_cmd(egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark));
-}
-
 impl Fastdiff {
     pub fn new(
         request: OpenRequest,
@@ -643,8 +634,9 @@ impl Fastdiff {
         mut benchmark: Benchmark,
         store: SettingsStore,
     ) -> Self {
-        apply_theme(context);
         context.set_zoom_factor(store.settings().zoom);
+        let mut appearance = theme_menu::Appearance::new(store, None);
+        appearance.apply(context);
         egui_extras::install_image_loaders(context);
         let wake_context = context.clone();
         server.set_wake_callback(move || wake_context.request_repaint());
@@ -662,7 +654,7 @@ impl Fastdiff {
             benchmark,
             help_open: false,
             fallback_fonts: crate::fallback_fonts::Watch::default(),
-            appearance: theme_menu::Appearance { store },
+            appearance,
         }
     }
 
@@ -838,6 +830,7 @@ impl Fastdiff {
 
     pub fn show(&mut self, context: &egui::Context) {
         self.benchmark.rendered(false);
+        self.appearance.apply(context);
         self.sync_zoom(context);
         self.shortcuts(context);
         let top_frame = egui::Frame::side_top_panel(&context.style()).inner_margin(egui::Margin {
@@ -1050,7 +1043,7 @@ impl Fastdiff {
             egui::vec2(ui.available_width(), TAB_ROW_HEIGHT),
             egui::Layout::right_to_left(egui::Align::Center),
             |ui| {
-                Self::global_controls(ui, &mut self.help_open);
+                Self::global_controls(ui, &mut self.help_open, &mut self.appearance);
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     egui::ScrollArea::horizontal()
                         .id_salt("repository-tabs")
@@ -1253,10 +1246,15 @@ impl Fastdiff {
 
     /// Window-wide controls: they apply to every tab, so they sit beside the tabs, not in a tab's toolbar.
     /// Called inside a right-to-left layout, so the widgets are added in reverse visual order.
-    fn global_controls(ui: &mut egui::Ui, help_open: &mut bool) {
+    fn global_controls(
+        ui: &mut egui::Ui,
+        help_open: &mut bool,
+        appearance: &mut theme_menu::Appearance,
+    ) {
         if ui.small_button("Help").clicked() {
             *help_open = true;
         }
+        appearance.show_menu(ui);
         let zoom = ui.ctx().zoom_factor();
         if ui
             .small_button("UI +")

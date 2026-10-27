@@ -118,7 +118,7 @@ pub(super) fn fixture() -> ReviewTab {
     }
 }
 
-fn viewer() -> Fastdiff {
+pub(super) fn viewer() -> Fastdiff {
     Fastdiff {
         tabs: vec![fixture()],
         selected_tab: 0,
@@ -531,6 +531,12 @@ fn help_lists_shortcuts_and_comparison_and_escape_closes() {
             .query_by_label(&shortcuts::binding_label("Ctrl+Alt+F"))
             .is_some()
     );
+    assert!(
+        harness
+            .query_by_label(&shortcuts::binding_label("Ctrl+K Ctrl+T"))
+            .is_some()
+    );
+    assert!(harness.query_by_label("Open Theme menu").is_some());
     harness.key_press(egui::Key::Escape);
     harness.run();
     assert!(harness.query_by_label("Keyboard shortcuts").is_none());
@@ -1916,27 +1922,6 @@ fn reflog_panel_omits_duplicate_head_and_branch_row() {
             }
         }
     }
-}
-
-#[test]
-fn chrome_stays_dark_under_a_light_system_appearance() {
-    let context = egui::Context::default();
-    context.set_theme(egui::ThemePreference::Light);
-    assert!(!context.style().visuals.dark_mode);
-
-    apply_theme(&context);
-
-    assert_eq!(context.theme(), egui::Theme::Dark);
-    assert!(context.style().visuals.dark_mode);
-}
-
-#[test]
-fn native_title_bar_is_pinned_to_dark_with_the_theme() {
-    let context = egui::Context::default();
-    let output = context.run(egui::RawInput::default(), apply_theme);
-
-    let commands = &output.viewport_output[&egui::ViewportId::ROOT].commands;
-    assert!(commands.contains(&egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark)));
 }
 
 #[test]
