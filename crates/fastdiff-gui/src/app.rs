@@ -4,6 +4,7 @@ use crate::{
     settings::SettingsStore,
     sidebar::FileTree,
     state::Preferences,
+    theme::ThemeId,
     worker::{Event, Worker},
 };
 use fastdiff_cli::{IpcServer, OpenRequest, OpenTarget};
@@ -626,6 +627,16 @@ pub struct Fastdiff {
     appearance: theme_menu::Appearance,
 }
 
+/// The `--color-theme` override of a request. A GUI that does not know the id ignores it.
+fn session_theme(request: &OpenRequest) -> Option<ThemeId> {
+    let name = request.color_theme.as_deref()?;
+    let theme = ThemeId::from_key(name);
+    if theme.is_none() {
+        eprintln!("fastdiff-gui: ignoring unknown color theme: {name}");
+    }
+    theme
+}
+
 impl Fastdiff {
     pub fn new(
         request: OpenRequest,
@@ -635,7 +646,7 @@ impl Fastdiff {
         store: SettingsStore,
     ) -> Self {
         context.set_zoom_factor(store.settings().zoom);
-        let mut appearance = theme_menu::Appearance::new(store, None);
+        let mut appearance = theme_menu::Appearance::new(store, session_theme(&request));
         appearance.apply(context);
         egui_extras::install_image_loaders(context);
         let wake_context = context.clone();
@@ -700,6 +711,10 @@ impl Fastdiff {
     fn open(&mut self, request: OpenRequest, context: &egui::Context) {
         self.benchmark.accept_request(&request);
         self.preferences.theme |= request.theme;
+        // A later request without the flag keeps the window's override.
+        if let Some(theme) = session_theme(&request) {
+            self.appearance.session = Some(theme);
+        }
         if let Some(index) = self.matching_tab(&request, cfg!(windows)) {
             self.selected_tab = index;
             let tab = &mut self.tabs[index];

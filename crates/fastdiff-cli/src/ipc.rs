@@ -466,6 +466,7 @@ mod tests {
             view: fastdiff_core::View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         }
     }
 

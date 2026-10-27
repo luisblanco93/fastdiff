@@ -29,7 +29,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Some("--smoke-test") => smoke = true,
             Some("--help") => {
                 println!(
-                    "fastdiff-gui [--request JSON] [--smoke-test]\nUse fastdiff [REPOSITORY|FILE] [--file PATH] [--view all|unstaged|staged|unpushed] for normal launches."
+                    "fastdiff-gui [--request JSON] [--smoke-test]\nUse fastdiff [REPOSITORY|FILE] [--file PATH] [--view all|unstaged|staged|unpushed] [--theme] [--color-theme NAME] for normal launches."
                 );
                 return Ok(());
             }
@@ -44,6 +44,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     });
     let server = match IpcServer::bind()? {
         Some(server) => server,

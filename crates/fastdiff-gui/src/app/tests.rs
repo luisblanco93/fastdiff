@@ -48,6 +48,7 @@ pub(super) fn fixture() -> ReviewTab {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     };
     let files = Arc::new(vec![FileChange {
         path: path.clone(),

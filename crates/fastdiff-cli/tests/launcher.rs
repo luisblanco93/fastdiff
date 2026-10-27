@@ -49,6 +49,7 @@ fn bounded_frames_roundtrip_and_reject_truncation() {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     };
     let mut bytes = Vec::new();
     write_frame(&mut bytes, &request).unwrap();
@@ -195,5 +196,33 @@ fn theme_json_rejects_non_boolean_values() {
             "view": "all", "wsl": null, "theme": theme
         });
         assert!(serde_json::from_value::<OpenRequest>(payload).is_err());
+    }
+}
+
+#[test]
+fn color_theme_flag_takes_a_known_name_and_is_sent_only_when_set() {
+    let Command::Open { request, .. } =
+        parse(["--color-theme", "dracula", "--theme"].map(OsString::from)).unwrap()
+    else {
+        panic!("expected launch")
+    };
+    assert_eq!(request.color_theme.as_deref(), Some("dracula"));
+    assert_eq!(
+        serde_json::to_value(&request).unwrap()["color_theme"],
+        "dracula"
+    );
+    let Command::Open { request, .. } = parse(["--", "--color-theme"].map(OsString::from)).unwrap()
+    else {
+        panic!("expected launch")
+    };
+    assert!(request.color_theme.is_none());
+    assert!(
+        serde_json::to_value(request)
+            .unwrap()
+            .get("color_theme")
+            .is_none()
+    );
+    for args in [vec!["--color-theme"], vec!["--color-theme", "solarized"]] {
+        assert!(parse(args.into_iter().map(OsString::from)).is_err());
     }
 }

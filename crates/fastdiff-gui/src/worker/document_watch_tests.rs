@@ -40,6 +40,7 @@ fn edit_after_the_first_content_in_a_repository_is_shown_before_the_next_poll() 
             view: View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         },
         egui::Context::default(),
     );
@@ -73,6 +74,7 @@ fn an_idle_document_does_not_ask_git_for_the_branch_on_every_poll() {
             view: View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         },
         egui::Context::default(),
     );

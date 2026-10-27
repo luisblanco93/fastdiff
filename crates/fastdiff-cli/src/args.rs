@@ -1,9 +1,9 @@
-use crate::{Error, Result};
+use crate::{COLOR_THEMES, Error, Result};
 use fastdiff_core::{GitPath, View};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 
-pub const HELP: &str = "fastdiff [repository|file] [--file path] [--view all|unstaged|staged|unpushed] [--theme]\n\nOpens full text files or current Git changes in a desktop window and returns after acceptance.\nThe default repository is the current directory.\nUse --theme to enable Material icons for all tabs in the window until it closes.\nUse --native in WSL to open a Linux window.\nSet FASTDIFF_WINDOWS_EXE to the Windows fastdiff-gui.exe for WSL.\n";
+pub const HELP: &str = "fastdiff [repository|file] [--file path] [--view all|unstaged|staged|unpushed] [--theme] [--color-theme name]\n\nOpens full text files or current Git changes in a desktop window and returns after acceptance.\nThe default repository is the current directory.\nUse --theme to enable Material icons for all tabs in the window until it closes.\nUse --color-theme to set the window's color theme until it closes without saving it: fastdiff, dark-modern, one-dark-pro, dracula, catppuccin-mocha, or github-light.\nUse --native in WSL to open a Linux window.\nSet FASTDIFF_WINDOWS_EXE to the Windows fastdiff-gui.exe for WSL.\n";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -22,6 +22,8 @@ pub struct OpenRequest {
     pub wsl: Option<WslTarget>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub theme: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color_theme: Option<String>,
 }
 
 impl OpenRequest {
@@ -41,6 +43,18 @@ impl OpenRequest {
         {
             return Err(Error::InvalidArgument(
                 "File path must not be empty or contain NUL".into(),
+            ));
+        }
+        // Only the form is checked: a GUI that does not know the id ignores it.
+        if let Some(name) = &self.color_theme
+            && (name.is_empty()
+                || name.len() > 64
+                || !name
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'))
+        {
+            return Err(Error::InvalidArgument(
+                "Color theme names use lowercase letters, digits, and hyphens".into(),
             ));
         }
         if let Some(wsl) = &self.wsl {
@@ -102,6 +116,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command> {
     let mut view = View::All;
     let mut native = false;
     let mut theme = false;
+    let mut color_theme = None;
     let mut helper = false;
     let mut document = false;
     let mut positional_only = false;
@@ -112,6 +127,18 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command> {
             Some("--version" | "-V") if !positional_only => return Ok(Command::Version),
             Some("--native") if !positional_only => native = true,
             Some("--theme") if !positional_only => theme = true,
+            Some("--color-theme") if !positional_only => {
+                let value = args.next().ok_or_else(|| missing("--color-theme"))?;
+                color_theme = match value.to_str() {
+                    Some(name) if COLOR_THEMES.contains(&name) => Some(name.to_owned()),
+                    _ => {
+                        return Err(Error::InvalidArgument(format!(
+                            "--color-theme must be one of: {}",
+                            COLOR_THEMES.join(", ")
+                        )));
+                    }
+                };
+            }
             Some("--helper") if !positional_only => helper = true,
             Some("--document") if !positional_only => document = true,
             Some("--file") if !positional_only => {
@@ -163,6 +190,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command> {
         view,
         wsl: None,
         theme,
+        color_theme,
     };
     request.validate()?;
     if helper {

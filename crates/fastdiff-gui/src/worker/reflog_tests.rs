@@ -299,6 +299,7 @@ fn spawn(root: &Path) -> Worker {
             view: View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         },
         egui::Context::default(),
     )
