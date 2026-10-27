@@ -11,6 +11,7 @@ fn viewer() -> Fastdiff {
         benchmark: Benchmark::new(false),
         help_open: false,
         fallback_fonts: Default::default(),
+        appearance: Default::default(),
         retired_workers: Vec::new(),
     }
 }
@@ -120,6 +121,7 @@ fn narrow_toolbar_keeps_controls_and_filter_inside_window() {
         harness.run();
         for label in [
             "Help",
+            "Theme ⏷",
             "Previous match",
             "Next match",
             "Search diff",
@@ -531,7 +533,13 @@ fn global_controls_sit_beside_the_tabs_not_in_the_toolbar() {
     let tab = harness.get_by_role_and_label(Role::Tab, "repo").rect();
     let search = harness.get_by_label("Search diff").rect();
     assert!(harness.get_by_label("Help").rect().right() >= 1100.0 - 24.0);
-    for label in ["Help", "UI −", "100%", "UI +"] {
+    // Visual order, left to right: UI −, 100%, UI +, Theme, Help.
+    let lefts: Vec<f32> = ["UI −", "100%", "UI +", "Theme ⏷", "Help"]
+        .iter()
+        .map(|label| harness.get_by_label(label).rect().left())
+        .collect();
+    assert!(lefts.windows(2).all(|pair| pair[0] < pair[1]), "{lefts:?}");
+    for label in ["Help", "Theme ⏷", "UI −", "100%", "UI +"] {
         let rect = harness.get_by_label(label).rect();
         assert!(
             rect.bottom() <= search.top(),

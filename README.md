@@ -77,6 +77,7 @@ dff . --view staged          # all | unstaged | staged | unpushed
 dff . --file src/main.rs     # open one changed file
 dff notes.txt                # searchable full-text view of any text file
 dff . --theme                # Material file icons and colored reflog
+dff . --color-theme dracula  # color theme for this window (see Theme menu)
 ```
 
 **All** lists each path once and labels its Unpushed, Staged, and Unstaged comparisons separately. The default layout is side by side; switch to Unified next to the file path. Binary files, conflicts, and oversized changes get a summary instead of a freeze.

@@ -48,6 +48,7 @@ pub(super) fn fixture() -> ReviewTab {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     };
     let files = Arc::new(vec![FileChange {
         path: path.clone(),
@@ -118,7 +119,7 @@ pub(super) fn fixture() -> ReviewTab {
     }
 }
 
-fn viewer() -> Fastdiff {
+pub(super) fn viewer() -> Fastdiff {
     Fastdiff {
         tabs: vec![fixture()],
         selected_tab: 0,
@@ -127,6 +128,7 @@ fn viewer() -> Fastdiff {
         benchmark: Benchmark::new(false),
         help_open: false,
         fallback_fonts: Default::default(),
+        appearance: Default::default(),
         retired_workers: Vec::new(),
     }
 }
@@ -530,6 +532,12 @@ fn help_lists_shortcuts_and_comparison_and_escape_closes() {
             .query_by_label(&shortcuts::binding_label("Ctrl+Alt+F"))
             .is_some()
     );
+    assert!(
+        harness
+            .query_by_label(&shortcuts::binding_label("Ctrl+K Ctrl+T"))
+            .is_some()
+    );
+    assert!(harness.query_by_label("Open Theme menu").is_some());
     harness.key_press(egui::Key::Escape);
     harness.run();
     assert!(harness.query_by_label("Keyboard shortcuts").is_none());
@@ -1801,7 +1809,13 @@ fn startup_and_ipc_requests_enable_window_theme() {
             theme: startup_theme,
             ..fixture().request
         };
-        let mut app = Fastdiff::new(request.clone(), server, &context, Benchmark::new(false));
+        let mut app = Fastdiff::new(
+            request.clone(),
+            server,
+            &context,
+            Benchmark::new(false),
+            SettingsStore::memory(),
+        );
         assert_eq!(app.preferences.theme, startup_theme);
         let forwarded = OpenRequest {
             theme: true,
@@ -1833,11 +1847,11 @@ fn theme_on_a_new_tab_applies_to_existing_tabs() {
 #[test]
 fn reflog_colors_match_reference_only_when_theme_is_enabled() {
     assert_eq!(
-        super::reflog::REFLOG_ID_COLOR,
+        crate::theme::ThemeId::Fastdiff.theme().status.reflog_id,
         egui::Color32::from_rgb(190, 154, 74)
     );
     assert_eq!(
-        super::reflog::REFLOG_BRANCH_COLOR,
+        crate::theme::ThemeId::Fastdiff.theme().status.reflog_branch,
         egui::Color32::from_rgb(88, 234, 81)
     );
     for theme in [false, true] {
@@ -1848,7 +1862,7 @@ fn reflog_colors_match_reference_only_when_theme_is_enabled() {
             .build_ui_state(|ui, tab| tab.show_reflog(ui, 0, theme), tab);
         harness.run();
         let expected = if theme {
-            super::reflog::REFLOG_ID_COLOR
+            crate::theme::ThemeId::Fastdiff.theme().status.reflog_id
         } else {
             harness.ctx.style().visuals.text_color()
         };
@@ -1858,7 +1872,7 @@ fn reflog_colors_match_reference_only_when_theme_is_enabled() {
             (
                 "(test/theme)",
                 if theme {
-                    super::reflog::REFLOG_BRANCH_COLOR
+                    crate::theme::ThemeId::Fastdiff.theme().status.reflog_branch
                 } else {
                     harness.ctx.style().visuals.text_color()
                 },
@@ -1912,22 +1926,41 @@ fn reflog_panel_omits_duplicate_head_and_branch_row() {
 }
 
 #[test]
-fn chrome_stays_dark_under_a_light_system_appearance() {
+fn zoom_changes_are_saved_once_and_saved_zoom_is_restored_at_startup() {
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(900.0, 500.0))
+        .build_state(|context, app| app.show(context), viewer());
+    harness.run();
+    assert_eq!(harness.state().appearance.store.saves(), 0);
+
+    harness.ctx.set_zoom_factor(1.3);
+    harness.run();
+    harness.run();
+    let store = &harness.state().appearance.store;
+    assert_eq!(store.saves(), 1);
+    assert!((store.settings().zoom - 1.3).abs() < 1e-6);
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("settings.json");
+    std::fs::write(&path, r#"{"zoom": 1.5}"#).unwrap();
+    let ipc_directory = tempfile::tempdir().unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(ipc_directory.path(), std::fs::Permissions::from_mode(0o700))
+            .unwrap();
+    }
+    let server = IpcServer::bind_at(ipc_directory.path()).unwrap().unwrap();
     let context = egui::Context::default();
-    context.set_theme(egui::ThemePreference::Light);
-    assert!(!context.style().visuals.dark_mode);
-
-    apply_theme(&context);
-
-    assert_eq!(context.theme(), egui::Theme::Dark);
-    assert!(context.style().visuals.dark_mode);
-}
-
-#[test]
-fn native_title_bar_is_pinned_to_dark_with_the_theme() {
-    let context = egui::Context::default();
-    let output = context.run(egui::RawInput::default(), apply_theme);
-
-    let commands = &output.viewport_output[&egui::ViewportId::ROOT].commands;
-    assert!(commands.contains(&egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark)));
+    let app = Fastdiff::new(
+        fixture().request,
+        server,
+        &context,
+        Benchmark::new(false),
+        SettingsStore::at(path),
+    );
+    // egui applies a requested zoom factor at the start of the next pass.
+    let _ = context.run(egui::RawInput::default(), |_| {});
+    assert!((context.zoom_factor() - 1.5).abs() < 1e-6);
+    assert_eq!(app.appearance.store.saves(), 0);
 }

@@ -288,7 +288,7 @@ impl Benchmark {
     }
 
     /// Whether any measurement output is configured; everything else is a no-op without it.
-    pub(crate) fn is_measuring(&self) -> bool {
+    pub fn is_measuring(&self) -> bool {
         self.report.is_some() || self.smoke
     }
 

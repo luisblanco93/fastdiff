@@ -53,6 +53,7 @@ fn backend(root: &std::path::Path) -> Backend {
             view: View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         },
         &CancelToken::default(),
     )

@@ -34,7 +34,7 @@ fn search_hits_highlight_whole_lines_and_clear_with_results() {
             .iter()
             .filter(|shape| {
                 matches!(&shape.shape, egui::Shape::Rect(rect)
-                if rect.fill == cells::SELECTION_COLOR
+                if rect.fill == crate::theme::ThemeId::Fastdiff.theme().code.highlight
                     && rect.rect.width() > 300.0)
             })
             .count()

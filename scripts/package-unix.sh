@@ -46,6 +46,7 @@ for binary in fastdiff fastdiff-gui; do
 done
 mkdir -p -- "$stage/$package/licenses"
 install -m 644 -- crates/fastdiff-gui/assets/material/LICENSE "$stage/$package/licenses/material-icons-LICENSE"
+install -m 644 -- crates/fastdiff-gui/assets/themes/NOTICE "$stage/$package/licenses/color-themes-NOTICE"
 # BSD tar on macOS would otherwise add AppleDouble "._*" entries, which the installer rejects.
 export COPYFILE_DISABLE=1
 tar -czf "$output_dir/$package.tar.gz" -C "$stage" "$package"

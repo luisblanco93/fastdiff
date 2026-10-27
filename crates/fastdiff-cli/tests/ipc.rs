@@ -16,6 +16,7 @@ fn request() -> OpenRequest {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     }
 }
 fn private_directory() -> tempfile::TempDir {

@@ -1,8 +1,10 @@
 use crate::{
     benchmark::{Benchmark, TabLocus, TabState},
     render::DiffPresentation,
+    settings::SettingsStore,
     sidebar::FileTree,
     state::Preferences,
+    theme::ThemeId,
     worker::{Event, Worker},
 };
 use fastdiff_cli::{IpcServer, OpenRequest, OpenTarget};
@@ -103,6 +105,9 @@ mod reflog;
 mod reflog_paging_tests;
 mod repository_identity;
 mod shortcuts;
+mod theme_menu;
+#[cfg(test)]
+mod theme_menu_tests;
 
 #[cfg(test)]
 mod responsive_tests;
@@ -619,15 +624,17 @@ pub struct Fastdiff {
     benchmark: Benchmark,
     help_open: bool,
     fallback_fonts: crate::fallback_fonts::Watch,
+    appearance: theme_menu::Appearance,
 }
 
-/// fastdiff has one dark theme. `set_visuals` only writes the active theme, so pin the theme
-/// first; otherwise a light system appearance shows egui's light chrome around dark diff panes.
-fn apply_theme(context: &egui::Context) {
-    context.set_theme(egui::Theme::Dark);
-    context.set_visuals(egui::Visuals::dark());
-    // The native title bar is outside egui's visuals and follows the system appearance.
-    context.send_viewport_cmd(egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark));
+/// The `--color-theme` override of a request. A GUI that does not know the id ignores it.
+fn session_theme(request: &OpenRequest) -> Option<ThemeId> {
+    let name = request.color_theme.as_deref()?;
+    let theme = ThemeId::from_key(name);
+    if theme.is_none() {
+        eprintln!("fastdiff-gui: ignoring unknown color theme: {name}");
+    }
+    theme
 }
 
 impl Fastdiff {
@@ -636,8 +643,11 @@ impl Fastdiff {
         server: IpcServer,
         context: &egui::Context,
         mut benchmark: Benchmark,
+        store: SettingsStore,
     ) -> Self {
-        apply_theme(context);
+        context.set_zoom_factor(store.settings().zoom);
+        let mut appearance = theme_menu::Appearance::new(store, session_theme(&request));
+        appearance.apply(context);
         egui_extras::install_image_loaders(context);
         let wake_context = context.clone();
         server.set_wake_callback(move || wake_context.request_repaint());
@@ -655,6 +665,7 @@ impl Fastdiff {
             benchmark,
             help_open: false,
             fallback_fonts: crate::fallback_fonts::Watch::default(),
+            appearance,
         }
     }
 
@@ -700,6 +711,10 @@ impl Fastdiff {
     fn open(&mut self, request: OpenRequest, context: &egui::Context) {
         self.benchmark.accept_request(&request);
         self.preferences.theme |= request.theme;
+        // A later request without the flag keeps the window's override.
+        if let Some(theme) = session_theme(&request) {
+            self.appearance.session = Some(theme);
+        }
         if let Some(index) = self.matching_tab(&request, cfg!(windows)) {
             self.selected_tab = index;
             let tab = &mut self.tabs[index];
@@ -830,6 +845,8 @@ impl Fastdiff {
 
     pub fn show(&mut self, context: &egui::Context) {
         self.benchmark.rendered(false);
+        self.appearance.apply(context);
+        self.sync_zoom(context);
         self.shortcuts(context);
         let top_frame = egui::Frame::side_top_panel(&context.style()).inner_margin(egui::Margin {
             left: 8,
@@ -951,7 +968,7 @@ impl Fastdiff {
                 ui.label(notice);
             }
             if let Some(error) = &tab.error {
-                ui.colored_label(egui::Color32::from_rgb(235, 146, 138), error);
+                ui.colored_label(ui.visuals().error_fg_color, error);
             }
             if let Some(presentation) = &mut tab.presentation {
                 presentation.set_layout(
@@ -971,7 +988,7 @@ impl Fastdiff {
                     presentation.lines.last()
                 {
                     ui.colored_label(
-                        egui::Color32::from_rgb(229, 177, 113),
+                        ui.visuals().warn_fg_color,
                         format!("Rendering limited to 100,000 rows; {omitted} rows omitted"),
                     );
                 }
@@ -1041,7 +1058,7 @@ impl Fastdiff {
             egui::vec2(ui.available_width(), TAB_ROW_HEIGHT),
             egui::Layout::right_to_left(egui::Align::Center),
             |ui| {
-                Self::global_controls(ui, &mut self.help_open);
+                Self::global_controls(ui, &mut self.help_open, &mut self.appearance);
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     egui::ScrollArea::horizontal()
                         .id_salt("repository-tabs")
@@ -1119,7 +1136,7 @@ impl Fastdiff {
                 let icon =
                     egui::Rect::from_center_size(slot.center(), egui::Vec2::splat(TAB_ICON_SIZE));
                 let icon_color = if selected {
-                    ui.visuals().selection.stroke.color
+                    crate::theme::active(ui.ctx()).app_theme().accent()
                 } else {
                     ui.visuals().weak_text_color()
                 };
@@ -1237,17 +1254,22 @@ impl Fastdiff {
                     frame.response.rect.left_bottom(),
                     frame.response.rect.right_bottom(),
                 ],
-                egui::Stroke::new(2.0, ui.visuals().selection.stroke.color),
+                egui::Stroke::new(2.0, crate::theme::active(ui.ctx()).app_theme().accent()),
             );
         }
     }
 
     /// Window-wide controls: they apply to every tab, so they sit beside the tabs, not in a tab's toolbar.
     /// Called inside a right-to-left layout, so the widgets are added in reverse visual order.
-    fn global_controls(ui: &mut egui::Ui, help_open: &mut bool) {
+    fn global_controls(
+        ui: &mut egui::Ui,
+        help_open: &mut bool,
+        appearance: &mut theme_menu::Appearance,
+    ) {
         if ui.small_button("Help").clicked() {
             *help_open = true;
         }
+        appearance.show_menu(ui);
         let zoom = ui.ctx().zoom_factor();
         if ui
             .small_button("UI +")
@@ -1612,6 +1634,7 @@ impl Drop for Fastdiff {
         for worker in self.retired_workers.drain(..) {
             join_worker(worker);
         }
+        self.appearance.store.flush();
         self.server.take();
         self.benchmark.finish();
     }

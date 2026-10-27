@@ -505,6 +505,7 @@ fn native_backend_handles_discovery_changes_and_invalid_repositories() {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     };
     let backend = fastdiff_cli::Backend::discover(&request).unwrap();
     assert_eq!(
@@ -724,6 +725,7 @@ fn document_backend_opens_standalone_and_ignored_files() {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     };
     let backend = Backend::discover(&request).unwrap();
     assert!(!backend.has_repository());
@@ -861,6 +863,7 @@ fn native_document_backend_does_not_require_git() {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     };
     let backend = fastdiff_cli::Backend::discover(&request).unwrap();
     assert!(!backend.has_repository());

@@ -35,6 +35,7 @@ fn request(repository: &str) -> OpenRequest {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     }
 }
 

@@ -1487,6 +1487,7 @@ mod tests {
                 view: View::All,
                 wsl: None,
                 theme: false,
+                color_theme: None,
             },
             egui::Context::default(),
         );
@@ -1625,6 +1626,7 @@ mod tests {
             view: View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         };
         let worker = Worker::spawn(request, egui::Context::default());
         // A request made before repository discovery completes must survive startup.
@@ -1692,6 +1694,7 @@ mod tests {
                 view: View::Staged,
                 wsl: None,
                 theme: false,
+                color_theme: None,
             },
             egui::Context::default(),
         );
@@ -1773,6 +1776,7 @@ mod tests {
                 view: View::All,
                 wsl: None,
                 theme: false,
+                color_theme: None,
             },
             egui::Context::default(),
         );
@@ -1952,6 +1956,7 @@ mod tests {
                 view: View::All,
                 wsl: None,
                 theme: false,
+                color_theme: None,
             },
             egui::Context::default(),
         );

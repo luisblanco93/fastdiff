@@ -6,6 +6,8 @@ pub enum TokenKind {
     String,
     Comment,
     Number,
+    Function,
+    Type,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +71,8 @@ pub fn highlight(text: &str) -> Vec<Span> {
                 Some(TokenKind::Number)
             } else if is_keyword(word) {
                 Some(TokenKind::Keyword)
+            } else if is_type(word) {
+                Some(TokenKind::Type)
             } else {
                 None
             };
@@ -78,12 +82,40 @@ pub fn highlight(text: &str) -> Vec<Span> {
                     end: cursor,
                     kind,
                 });
+            } else if let Some(offset) = function_offset(word, &text[cursor..]) {
+                spans.push(Span {
+                    start: start + offset,
+                    end: cursor,
+                    kind: TokenKind::Function,
+                });
             }
         } else {
             cursor += character.len_utf8();
         }
     }
     spans
+}
+
+/// A type name has no `.`, starts with an ASCII capital and mixes in lowercase, so `HashMap`
+/// and `Ok` qualify while `MAX_X`, `HTTP` and `T` stay plain.
+fn is_type(word: &str) -> bool {
+    word.starts_with(|ch: char| ch.is_ascii_uppercase())
+        && !word.contains('.')
+        && word.chars().any(|ch| ch.is_lowercase())
+}
+
+/// Start of the called name inside `word` when `after` opens a call, or a Rust macro
+/// invocation (`name!(`, `name![`, `name!{`). Only the last segment of a dotted word is the
+/// callee, so `theme.diff.add(` colors just `add`.
+fn function_offset(word: &str, after: &str) -> Option<usize> {
+    let opens_call = after.starts_with('(')
+        || after
+            .strip_prefix('!')
+            .is_some_and(|rest| rest.starts_with(['(', '[', '{']));
+    let offset = word.rfind('.').map_or(0, |dot| dot + 1);
+    let name = &word[offset..];
+    (opens_call && !name.is_empty() && !name.starts_with(|ch: char| ch.is_ascii_digit()))
+        .then_some(offset)
 }
 
 fn is_keyword(word: &str) -> bool {
@@ -155,6 +187,41 @@ mod tests {
                 .all(|s| text.is_char_boundary(s.start) && text.is_char_boundary(s.end))
         );
         assert_eq!(highlight("42")[0].kind, TokenKind::Number);
+    }
+    fn kinds(text: &str) -> Vec<(&str, TokenKind)> {
+        highlight(text)
+            .iter()
+            .map(|span| (&text[span.start..span.end], span.kind))
+            .collect()
+    }
+    #[test]
+    fn tokenizes_functions_types_and_their_precedence() {
+        assert_eq!(
+            kinds("run(1)"),
+            [("run", TokenKind::Function), ("1", TokenKind::Number)]
+        );
+        assert_eq!(kinds("println!(x)"), [("println", TokenKind::Function)]);
+        assert_eq!(
+            kinds("fn open(x)"),
+            [("fn", TokenKind::Keyword), ("open", TokenKind::Function)]
+        );
+        assert_eq!(kinds("theme.diff.add(x)"), [("add", TokenKind::Function)]);
+        for plain in ["value (x)", "a != b", "theme.diff.add", "self.0(x)"] {
+            assert!(kinds(plain).is_empty(), "{plain}");
+        }
+        assert_eq!(kinds("HashMap<K>"), [("HashMap", TokenKind::Type)]);
+        assert_eq!(
+            kinds("Vec::with_capacity(x)"),
+            [
+                ("Vec", TokenKind::Type),
+                ("with_capacity", TokenKind::Function)
+            ]
+        );
+        assert_eq!(kinds("Some(x)"), [("Some", TokenKind::Keyword)]);
+        assert_eq!(kinds("1.5"), [("1.5", TokenKind::Number)]);
+        for plain in ["MAX_X", "HTTP", "T", "Foo.bar"] {
+            assert!(kinds(plain).is_empty(), "{plain}");
+        }
     }
     #[test]
     fn huge_unicode_lines_have_a_bounded_valid_preview() {

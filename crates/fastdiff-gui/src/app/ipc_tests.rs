@@ -26,7 +26,13 @@ fn incoming_ipc_request_wakes_registered_gui_context() {
     let context = egui::Context::default();
     let request = tests::fixture().request;
     assert!(fastdiff_cli::forward_at(directory.path(), &request).unwrap());
-    let mut app = Fastdiff::new(request.clone(), server, &context, Benchmark::new(false));
+    let mut app = Fastdiff::new(
+        request.clone(),
+        server,
+        &context,
+        Benchmark::new(false),
+        SettingsStore::memory(),
+    );
     drop(app.tabs[0].worker.take());
     app.poll(&context);
     assert_eq!(app.tabs.len(), 1);
@@ -54,7 +60,13 @@ fn ipc_error_backlog_requests_repaints_until_accepted_request_is_delivered() {
     let server = IpcServer::bind_at(directory.path()).unwrap().unwrap();
     let context = egui::Context::default();
     let request = tests::fixture().request;
-    let mut app = Fastdiff::new(request.clone(), server, &context, Benchmark::new(false));
+    let mut app = Fastdiff::new(
+        request.clone(),
+        server,
+        &context,
+        Benchmark::new(false),
+        SettingsStore::memory(),
+    );
     drop(app.tabs[0].worker.take());
     for _ in 0..2 {
         let mut stream = UnixStream::connect(directory.path().join("gui.sock")).unwrap();

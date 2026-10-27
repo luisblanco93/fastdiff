@@ -4,6 +4,9 @@ use egui::{Event, Key, Modifiers};
 /// Primary shortcut modifier: Ctrl on Linux and Windows, Cmd on macOS.
 const PRIMARY: Modifiers = Modifiers::COMMAND;
 
+/// Seconds the second key of Ctrl+K Ctrl+T may follow the first.
+const CHORD_WINDOW: f64 = 2.0;
+
 /// Rewrites a `Ctrl+...` binding label for the current platform.
 pub(super) fn binding_label(binding: &str) -> String {
     if cfg!(target_os = "macos") {
@@ -34,6 +37,7 @@ const SHORTCUTS: &[(&str, &str)] = &[
         "Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4",
         "All / Unstaged / Staged / Unpushed",
     ),
+    ("Ctrl+K Ctrl+T", "Open Theme menu"),
     ("Ctrl+Shift+U", "Toggle unified layout"),
     ("Ctrl+Shift+K", "Collapse context"),
     ("Ctrl+Shift+C", "Copy path"),
@@ -86,6 +90,7 @@ impl Fastdiff {
             self.help_open = true;
         }
         if self.help_open {
+            self.appearance.chord_started = None;
             if consume(context, Modifiers::NONE, Key::Escape) {
                 self.help_open = false;
             }
@@ -130,6 +135,7 @@ impl Fastdiff {
         if text_focus {
             return;
         }
+        Self::theme_chord(&mut self.appearance, context);
         for (key, next) in [(Key::ArrowUp, false), (Key::ArrowDown, true)] {
             if consume(context, Modifiers::ALT, key) {
                 tab.navigate_file(next);
@@ -191,6 +197,33 @@ impl Fastdiff {
             if consume(context, ctrl_alt | Modifiers::SHIFT, Key::C) {
                 tab.copy_comparison(context, true);
             }
+        }
+    }
+
+    /// Ctrl+K then Ctrl+T within two seconds opens the Theme menu; any other key cancels.
+    /// It only runs outside text fields, where Ctrl+K keeps deleting to the end of the line.
+    fn theme_chord(appearance: &mut super::theme_menu::Appearance, context: &egui::Context) {
+        let now = context.input(|input| input.time);
+        if appearance
+            .chord_started
+            .is_some_and(|started| now - started > CHORD_WINDOW)
+        {
+            appearance.chord_started = None;
+        }
+        if appearance.chord_started.is_some() && consume(context, PRIMARY, Key::T) {
+            appearance.chord_started = None;
+            appearance.menu_requested = true;
+        } else if consume(context, PRIMARY, Key::K) {
+            appearance.chord_started = Some(now);
+        } else if appearance.chord_started.is_some()
+            && context.input(|input| {
+                input
+                    .events
+                    .iter()
+                    .any(|event| matches!(event, Event::Key { pressed: true, .. }))
+            })
+        {
+            appearance.chord_started = None;
         }
     }
 

@@ -4,6 +4,8 @@ pub mod fallback_fonts;
 pub mod highlight;
 pub mod presentation;
 pub mod render;
+pub mod settings;
 pub mod sidebar;
 pub mod state;
+pub mod theme;
 pub mod worker;

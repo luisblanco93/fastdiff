@@ -17,6 +17,16 @@ pub use helper::{
 pub use ipc::{IpcServer, forward, forward_at};
 pub use launch::launch;
 
+/// Valid `--color-theme` values; the GUI keeps its theme ids in sync with this list.
+pub const COLOR_THEMES: [&str; 6] = [
+    "fastdiff",
+    "dark-modern",
+    "one-dark-pro",
+    "dracula",
+    "catppuccin-mocha",
+    "github-light",
+];
+
 pub const PROTOCOL_VERSION: u32 = 5;
 pub const READY_MESSAGE: &str = "FASTDIFF_ACCEPTED";
 

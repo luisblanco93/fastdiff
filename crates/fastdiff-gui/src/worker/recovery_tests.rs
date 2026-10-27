@@ -90,6 +90,7 @@ fn request() -> OpenRequest {
             helper: "/original/helper".into(),
         }),
         theme: false,
+        color_theme: None,
     }
 }
 

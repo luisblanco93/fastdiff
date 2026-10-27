@@ -59,6 +59,7 @@ mod tests {
             view: View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         }
     }
 
@@ -148,6 +149,7 @@ mod tests {
             benchmark: Benchmark::new(false),
             help_open: false,
             fallback_fonts: Default::default(),
+            appearance: Default::default(),
             retired_workers: Vec::new(),
         };
         assert_eq!(viewer.matching_tab(&forwarded, true), Some(0));

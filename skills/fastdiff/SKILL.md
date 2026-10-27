@@ -11,6 +11,7 @@ dff /path/to/repository --file 'src/file with spaces.rs' --view staged
 dff notes.txt
 dff . --view unpushed
 dff . --theme
+dff . --color-theme dracula
 ```
 
 Pass targets and options as separate, quoted arguments; never evaluate user input as shell fragments. `--file` is repository-relative, and `--view` accepts `all`, `unstaged`, `staged`, or `unpushed`. WSL opens the Windows viewer by default; use `--native` only when the user requests the Linux window.

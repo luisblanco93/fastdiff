@@ -199,7 +199,7 @@ cargo build --release --locked --workspace
 
 ZIP entries use forward slashes so the installer can safely extract them on either platform.
 
-Application archives contain binaries and the bundled icon license: Linux and macOS have `bin/fastdiff` and `bin/fastdiff-gui`; Windows has `bin/fastdiff.exe`, `bin/fastdiff-gui.exe`, and `wsl/fastdiff`. Both include `licenses/material-icons-LICENSE`, copied unchanged from `crates/fastdiff-gui/assets/material/LICENSE`; the icons themselves are embedded in the GUI executable. The canonical agent skill and documentation stay in this repository. Releases contain four assets: the Linux archive, the macOS archive, the Windows archive, and `SHA256SUMS`.
+Application archives contain binaries and the bundled icon license: Linux and macOS have `bin/fastdiff` and `bin/fastdiff-gui`; Windows has `bin/fastdiff.exe`, `bin/fastdiff-gui.exe`, and `wsl/fastdiff`. Both include `licenses/material-icons-LICENSE`, copied unchanged from `crates/fastdiff-gui/assets/material/LICENSE`, and `licenses/color-themes-NOTICE`, copied unchanged from `crates/fastdiff-gui/assets/themes/NOTICE`; the icons and theme colors themselves are embedded in the GUI executable. The canonical agent skill and documentation stay in this repository. Releases contain four assets: the Linux archive, the macOS archive, the Windows archive, and `SHA256SUMS`.
 
 The focused packaging checks are `python3 -m unittest discover -s scripts -p 'test_app_package.py'` on Linux and `./scripts/test-package-windows.ps1` on Windows; they check exact archive contents and the bundled license contents using fixtures without compiling the app.
 

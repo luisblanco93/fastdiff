@@ -70,6 +70,7 @@ fn lit1_refresh_measurement() {
             benchmark: Benchmark::new(false),
             help_open: false,
             fallback_fonts: Default::default(),
+            appearance: Default::default(),
             retired_workers: Vec::new(),
         };
         let mut harness = Harness::builder()
@@ -95,6 +96,7 @@ fn lit1_refresh_measurement() {
                     view: View::All,
                     wsl: None,
                     theme: false,
+                    color_theme: None,
                 },
                 &context,
             );
@@ -136,6 +138,7 @@ fn lit1_refresh_measurement() {
         benchmark: Benchmark::new(false),
         help_open: false,
         fallback_fonts: Default::default(),
+        appearance: Default::default(),
         retired_workers: Vec::new(),
     };
     let mut harness = Harness::builder()
@@ -156,6 +159,7 @@ fn lit1_refresh_measurement() {
             view: View::All,
             wsl: None,
             theme: false,
+            color_theme: None,
         },
         &context,
     );

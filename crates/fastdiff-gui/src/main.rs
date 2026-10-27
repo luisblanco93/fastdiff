@@ -2,7 +2,7 @@
 // Native setup follows https://github.com/emilk/eframe_template/src/main.rs.
 use fastdiff_cli::{IpcServer, OpenRequest, READY_MESSAGE, forward};
 use fastdiff_core::View;
-use fastdiff_gui::{app::Fastdiff, benchmark::Benchmark};
+use fastdiff_gui::{app::Fastdiff, benchmark::Benchmark, settings::SettingsStore};
 use std::io::Write;
 
 fn main() {
@@ -29,7 +29,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Some("--smoke-test") => smoke = true,
             Some("--help") => {
                 println!(
-                    "fastdiff-gui [--request JSON] [--smoke-test]\nUse fastdiff [REPOSITORY|FILE] [--file PATH] [--view all|unstaged|staged|unpushed] for normal launches."
+                    "fastdiff-gui [--request JSON] [--smoke-test]\nUse fastdiff [REPOSITORY|FILE] [--file PATH] [--view all|unstaged|staged|unpushed] [--theme] [--color-theme NAME] for normal launches."
                 );
                 return Ok(());
             }
@@ -44,6 +44,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         view: View::All,
         wsl: None,
         theme: false,
+        color_theme: None,
     });
     let server = match IpcServer::bind()? {
         Some(server) => server,
@@ -57,6 +58,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     };
+    // Measured runs and smoke tests must not read or write the user's settings.
+    let store = if benchmark.is_measuring() {
+        SettingsStore::memory()
+    } else {
+        SettingsStore::open_default()
+    };
     let options = eframe::NativeOptions {
         renderer: eframe::Renderer::Glow,
         viewport: egui::ViewportBuilder::default()
@@ -69,7 +76,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "fastdiff",
         options,
         Box::new(move |creation| {
-            let app = Fastdiff::new(request, server, &creation.egui_ctx, benchmark);
+            let app = Fastdiff::new(request, server, &creation.egui_ctx, benchmark, store);
             if ready_stdio {
                 accepted()?;
             }
