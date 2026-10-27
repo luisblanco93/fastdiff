@@ -24,6 +24,7 @@ class AppPackageTests(unittest.TestCase):
             f"{package}/bin/fastdiff",
             f"{package}/bin/fastdiff-gui",
             f"{package}/licenses/material-icons-LICENSE",
+            f"{package}/licenses/color-themes-NOTICE",
         }
         with tempfile.TemporaryDirectory(prefix="fastdiff app package ") as directory:
             base = Path(directory)
@@ -33,6 +34,9 @@ class AppPackageTests(unittest.TestCase):
             license_path = base / "crates/fastdiff-gui/assets/material/LICENSE"
             license_path.parent.mkdir(parents=True)
             license_path.write_bytes(license_content)
+            notice_path = base / "crates/fastdiff-gui/assets/themes/NOTICE"
+            notice_path.parent.mkdir(parents=True)
+            notice_path.write_bytes(b"Color themes notice fixture\n")
             binary_dir = base / "binaries"
             binary_dir.mkdir()
             tools_dir = base / "tools"

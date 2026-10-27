@@ -125,14 +125,14 @@ It rejects IDE-style chrome: no activity bars, icon rails, or nested panel stack
 
 **Key Characteristics:**
 - Flat panels separated by 1px hairlines; no shadows on resting surfaces.
-- One dark theme; meaning carried by diff background tint and +/− markers, never by chrome color.
+- Six switchable themes (Default is the original dark one); meaning carried by diff background tint and +/− markers, never by chrome color.
 - Monospace is reserved for source, paths, and shortcut bindings.
 - Compact 24px interactive rows with keyboard focus rings on every control.
 - One blue fill for selection and search matches in content.
 
 ## Colors
 
-A neutral gray chrome frame around a cool-slate code surface, with desaturated moss and wine tints for change and a small set of soft syntax hues. Chrome values are inherited from egui's dark preset (`Visuals::dark()`); the app overrides none of them.
+A neutral gray chrome frame around a cool-slate code surface, with desaturated moss and wine tints for change and a small set of soft syntax hues. In the Default theme, chrome values are inherited from egui's dark preset (`Visuals::dark()`); the app overrides none of them. The other themes are described under Themes.
 
 ### Primary
 - **Tide Blue** (#374E73): The single content-level accent. Fills selected source ranges and search-match rows, in both panes and the unified view.
@@ -171,7 +171,13 @@ A neutral gray chrome frame around a cool-slate code surface, with desaturated m
 ### Named Rules
 **The Diff-Only Hue Rule.** Saturated hue belongs to diff rows, badges, and syntax. Chrome stays neutral gray so change is the loudest thing on screen.
 
-**The One Selection Blue Rule.** Source selection and search matches share Tide Blue. A second highlight color never competes with it.
+**The One Selection Blue Rule.** In the Default theme, source selection and search matches share Tide Blue. A second highlight color never competes with it. Other themes keep selection and search match as two slots, because one shared color would turn selections orange or yellow.
+
+## Themes
+
+Every theme fills the same slots: window chrome (panel, window, border, text, input, controls, selection, accent), code (surface, text, gutter, addition, deletion, search match, selection, six syntax colors), and status (modified, untracked, conflict, error, warning, reflog). The Default theme keeps its original values; Dark Modern, One Dark Pro, Dracula, Catppuccin Mocha, and GitHub Light take the official colors, with diff backgrounds blended from the official translucent fills over each theme's editor background.
+
+**The Readability Over Fidelity Rule.** A contrast test enforces 4.5:1 for text and syntax over context, addition, and deletion rows (3:1 for the gutter and for syntax over matches and selections) and 4.5:1 for messages and badges over the panel. A failing color moves lighter in a dark theme and darker in a light one, keeping its hue, and its source comment names the official value.
 
 ## Typography
 

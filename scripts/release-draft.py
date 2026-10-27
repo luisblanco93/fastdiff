@@ -44,6 +44,7 @@ def check_member_names(names: list[str], root: str) -> None:
 
 
 LICENSE_NAME = "licenses/material-icons-LICENSE"
+THEMES_NOTICE_NAME = "licenses/color-themes-NOTICE"
 
 
 def verify_tar_archive(path: Path, root: str, label: str) -> str:
@@ -55,7 +56,8 @@ def verify_tar_archive(path: Path, root: str, label: str) -> str:
             if not (member.isfile() or member.isdir()):
                 raise ValueError(f"{label} archive member {member.name!r} is not a file or directory")
         files = {m.name for m in members if m.isfile()}
-        expected = {f"{root}/bin/fastdiff", f"{root}/bin/fastdiff-gui", f"{root}/{LICENSE_NAME}"}
+        expected = {f"{root}/bin/fastdiff", f"{root}/bin/fastdiff-gui", f"{root}/{LICENSE_NAME}",
+                    f"{root}/{THEMES_NOTICE_NAME}"}
         if files != expected:
             raise ValueError(f"Unexpected {label} archive contents: {sorted(files ^ expected)}")
         return sha256(archive.extractfile(f"{root}/bin/{HELPER_NAME}"))
@@ -96,7 +98,8 @@ def verify_assets(directory: Path, version: str) -> dict[str, Path]:
                 raise ValueError(f"Windows archive entry {entry.filename!r} is a symbolic link")
         files = {e.filename for e in entries if not e.filename.endswith("/")}
         expected = {f"{windows_root}/bin/fastdiff.exe", f"{windows_root}/bin/fastdiff-gui.exe",
-                    f"{windows_root}/wsl/fastdiff", f"{windows_root}/{LICENSE_NAME}"}
+                    f"{windows_root}/wsl/fastdiff", f"{windows_root}/{LICENSE_NAME}",
+                    f"{windows_root}/{THEMES_NOTICE_NAME}"}
         if files != expected:
             raise ValueError(f"Unexpected Windows archive contents: {sorted(files ^ expected)}")
         with archive.open(f"{windows_root}/wsl/{HELPER_NAME}") as stream:

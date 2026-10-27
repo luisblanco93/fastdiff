@@ -4,6 +4,16 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+### Added
+
+- Color themes: a **Theme** button (or Ctrl+K then Ctrl+T) offers Default, Dark Modern, One Dark Pro, Dracula, Catppuccin Mocha, and GitHub Light. Each theme sets the window, diff, and syntax colors; hovering a theme previews it and Esc restores the previous one. The menu can follow the system light or dark mode (Windows and macOS) and give the code viewer its own theme. `--color-theme NAME` sets the theme for one window without saving it. Function names and type names are now highlighted in code.
+- The theme choice and the UI zoom are remembered between launches in `fastdiff/settings.json` in your config directory.
+
+### Changed
+
+- The launcher and the viewer must come from the same version: an older running viewer rejects launches that carry `--color-theme`.
+- Release archives include `licenses/color-themes-NOTICE` with the licenses of the theme colors.
+
 ## [1.2.0] - 2026-10-19
 
 ### Changed

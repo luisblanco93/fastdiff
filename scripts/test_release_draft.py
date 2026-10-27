@@ -26,7 +26,8 @@ TAG = f"v{VERSION}"
 def write_tar(path: Path, root: str, helper: bytes, extra=()):
     with tarfile.open(path, "w:gz") as archive:
         members = {f"{root}/bin/fastdiff": helper, f"{root}/bin/fastdiff-gui": b"gui",
-                   f"{root}/licenses/material-icons-LICENSE": b"license"}
+                   f"{root}/licenses/material-icons-LICENSE": b"license",
+                   f"{root}/licenses/color-themes-NOTICE": b"notice"}
         for name in extra:
             members[name] = b"unexpected"
         for name, data in members.items():
@@ -45,6 +46,7 @@ def write_assets(directory: Path, helper=b"helper", windows_helper=None, extra_l
         archive.writestr(f"{WINDOWS}/bin/fastdiff-gui.exe", b"gui")
         archive.writestr(f"{WINDOWS}/wsl/fastdiff", helper if windows_helper is None else windows_helper)
         archive.writestr(f"{WINDOWS}/licenses/material-icons-LICENSE", b"license")
+        archive.writestr(f"{WINDOWS}/licenses/color-themes-NOTICE", b"notice")
     write_sums(directory)
 
 

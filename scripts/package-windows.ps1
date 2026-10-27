@@ -25,6 +25,7 @@ try {
     Copy-Item -LiteralPath $WslHelper -Destination (Join-Path $packageDir 'wsl/fastdiff')
     New-Item -ItemType Directory -Path (Join-Path $packageDir 'licenses') -Force | Out-Null
     Copy-Item -LiteralPath 'crates/fastdiff-gui/assets/material/LICENSE' -Destination (Join-Path $packageDir 'licenses/material-icons-LICENSE')
+    Copy-Item -LiteralPath 'crates/fastdiff-gui/assets/themes/NOTICE' -Destination (Join-Path $packageDir 'licenses/color-themes-NOTICE')
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
     $archive = Join-Path $OutputDir "$package.zip"
     Add-Type -AssemblyName System.IO.Compression
