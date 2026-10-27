@@ -4,6 +4,8 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-27
+
 ### Added
 
 - The fastdiff app icon now appears on the window and taskbar, and on `fastdiff-gui.exe` in Windows Explorer.
