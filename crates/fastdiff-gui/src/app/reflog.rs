@@ -1,9 +1,6 @@
 use super::ReviewTab;
 use fastdiff_core::{ReflogList, ReflogRequest};
 
-pub(super) const REFLOG_ID_COLOR: egui::Color32 = egui::Color32::from_rgb(190, 154, 74);
-pub(super) const REFLOG_BRANCH_COLOR: egui::Color32 = egui::Color32::from_rgb(88, 234, 81);
-
 impl ReviewTab {
     pub(super) fn toggle_reflog(&mut self) {
         if !self.has_repository {
@@ -92,7 +89,7 @@ impl ReviewTab {
             ui.add(
                 egui::Label::new(
                     egui::RichText::new(format!("{error}\nRefresh with F5 to retry."))
-                        .color(egui::Color32::from_rgb(235, 146, 138)),
+                        .color(ui.visuals().error_fg_color),
                 )
                 .truncate(),
             );
@@ -113,13 +110,14 @@ impl ReviewTab {
         if let Some(notice) = &list.notice {
             ui.add(egui::Label::new(notice).truncate());
         }
+        let status = &crate::theme::active(ui.ctx()).app_theme().status;
         let id_color = if theme {
-            REFLOG_ID_COLOR
+            status.reflog_id
         } else {
             ui.visuals().text_color()
         };
         let branch_color = if theme {
-            REFLOG_BRANCH_COLOR
+            status.reflog_branch
         } else {
             ui.visuals().text_color()
         };

@@ -106,14 +106,15 @@ pub(super) fn row_button(
                 color,
             );
         if !badge.is_empty() {
+            let status = &crate::theme::active(ui.ctx()).app_theme().status;
             let badge_color = file
                 .map(|file| {
                     if file.conflict {
-                        Color32::from_rgb(245, 120, 120)
+                        status.conflict
                     } else if file.untracked {
-                        Color32::from_rgb(110, 205, 145)
+                        status.untracked
                     } else {
-                        Color32::from_rgb(145, 180, 215)
+                        status.modified
                     }
                 })
                 .unwrap_or(color);

@@ -2,7 +2,7 @@ use crate::{
     presentation::{VisibleRow, visible_rows},
     worker::PreparedDocument,
 };
-use egui::{Color32, RichText};
+use egui::RichText;
 use fastdiff_core::RowKind;
 
 mod cells;
@@ -232,6 +232,7 @@ impl DiffPresentation {
             self.horizontal.unified =
                 (columns as f32 * self.horizontal.document_advance - 24.0).max(0.0);
         }
+        let active = crate::theme::active(ui.ctx());
         let height = (ui.available_height() - 20.0).max(0.0);
         if self.pending_scroll.is_some()
             || self.jump.is_some()
@@ -300,7 +301,7 @@ impl DiffPresentation {
                                     &self.document.document.comparisons[*comparison].label,
                                 )
                                 .strong()
-                                .color(Color32::from_rgb(147, 180, 239)),
+                                .color(active.app_theme().header),
                             )
                             .selectable(false)
                             .truncate(),
@@ -320,6 +321,7 @@ impl DiffPresentation {
                     }
                     DisplayLine::Source { row, side } => draw_row(
                         ui,
+                        active,
                         &self.document,
                         *row,
                         *side,
@@ -338,7 +340,7 @@ impl DiffPresentation {
                                 RichText::new(format!(
                                     "Rendering limited to 100,000 rows; {omitted} rows omitted"
                                 ))
-                                .color(Color32::from_rgb(229, 177, 113)),
+                                .color(ui.visuals().warn_fg_color),
                             )
                             .selectable(false)
                             .truncate(),

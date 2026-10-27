@@ -6,16 +6,16 @@ use super::{
 pub(super) use crate::worker::character_columns;
 use crate::{
     highlight::{PREVIEW_SUFFIX, Span, TokenKind, preview_len},
+    theme::{Active, CodePalette},
     worker::{LineCheckpoint, PreparedDocument},
 };
-use egui::{Color32, FontId, Layout, RichText, TextFormat, text::LayoutJob};
+use egui::{FontId, Layout, RichText, TextFormat, text::LayoutJob};
 use fastdiff_core::RowKind;
-
-pub(super) const SELECTION_COLOR: Color32 = Color32::from_rgb(55, 78, 115);
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_row(
     ui: &mut egui::Ui,
+    active: Active,
     document: &PreparedDocument,
     index: usize,
     side: Side,
@@ -34,7 +34,8 @@ pub(super) fn draw_row(
     if row.kind == RowKind::Header {
         if search_match {
             let rect = egui::Rect::from_min_size(ui.cursor().min, size);
-            ui.painter().rect_filled(rect, 0.0, SELECTION_COLOR);
+            ui.painter()
+                .rect_filled(rect, 0.0, active.code_palette().highlight);
         }
         let text = if row.right.is_empty() {
             &row.left
@@ -47,7 +48,7 @@ pub(super) fn draw_row(
                 RichText::new(text)
                     .monospace()
                     .size(font)
-                    .color(Color32::from_rgb(147, 180, 239)),
+                    .color(active.app_theme().header),
             )
             .selectable(false)
             .truncate(),
@@ -79,6 +80,7 @@ pub(super) fn draw_row(
             };
             code_cell(
                 ui,
+                active.code_palette(),
                 text,
                 spans,
                 if old { row.old_number } else { row.new_number },
@@ -105,6 +107,7 @@ pub(super) fn draw_row(
         } else {
             code_cell(
                 ui,
+                active.code_palette(),
                 &row.left,
                 &prepared.left,
                 row.old_number,
@@ -128,6 +131,7 @@ pub(super) fn draw_row(
             );
             code_cell(
                 ui,
+                active.code_palette(),
                 &row.right,
                 &prepared.right,
                 row.new_number,
@@ -156,6 +160,7 @@ pub(super) fn draw_row(
 #[allow(clippy::too_many_arguments)]
 fn code_cell(
     ui: &mut egui::Ui,
+    palette: &CodePalette,
     text: &str,
     spans: &[Span],
     number: Option<usize>,
@@ -174,12 +179,12 @@ fn code_cell(
     search_match: bool,
 ) {
     let background = if search_match {
-        SELECTION_COLOR
+        palette.highlight
     } else {
         match kind {
-            RowKind::Addition => Color32::from_rgb(27, 55, 42),
-            RowKind::Deletion => Color32::from_rgb(66, 35, 40),
-            _ => Color32::from_rgb(24, 27, 33),
+            RowKind::Addition => palette.addition,
+            RowKind::Deletion => palette.deletion,
+            _ => palette.surface,
         }
     };
     let (rect, _) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
@@ -201,7 +206,7 @@ fn code_cell(
             ))
             .monospace()
             .size(font)
-            .color(Color32::from_rgb(117, 127, 143)),
+            .color(palette.gutter),
         )
         .selectable(false)
         .truncate(),
@@ -233,9 +238,9 @@ fn code_cell(
     );
     source_ui.set_clip_rect(ui.clip_rect().intersect(source));
     let (origin, galley, response) = egui::Label::new(if document.is_document {
-        window_layout(text, spans, window.clone(), font)
+        window_layout(text, spans, window.clone(), font, palette)
     } else {
-        layout(text, spans, font)
+        layout(text, spans, font, palette)
     })
     .extend()
     .selectable(false)
@@ -287,7 +292,7 @@ fn code_cell(
             );
             source_ui
                 .painter()
-                .rect_filled(highlight, 0.0, SELECTION_COLOR);
+                .rect_filled(highlight, 0.0, palette.selection);
         }
         let response = ui.interact(
             source,
@@ -308,9 +313,7 @@ fn code_cell(
         let cell = cells.last().expect("source cell just inserted");
         cell.interact(ui, document, selection);
     }
-    source_ui
-        .painter()
-        .galley(origin, galley, Color32::from_rgb(213, 220, 230));
+    source_ui.painter().galley(origin, galley, palette.text);
 }
 
 fn document_window(
@@ -356,6 +359,7 @@ fn window_layout(
     spans: &[Span],
     window: std::ops::Range<usize>,
     font: f32,
+    palette: &CodePalette,
 ) -> LayoutJob {
     let spans: Vec<_> = spans
         .iter()
@@ -371,29 +375,36 @@ fn window_layout(
         .collect();
     let visible = &text[window];
     // The window is bounded by viewport columns, so it can be laid out without preview truncation.
-    layout_range(visible, &spans, font, visible.len(), false)
+    layout_range(visible, &spans, font, visible.len(), false, palette)
 }
 
-fn layout(text: &str, spans: &[Span], font: f32) -> LayoutJob {
+fn layout(text: &str, spans: &[Span], font: f32, palette: &CodePalette) -> LayoutJob {
     let end = preview_len(text);
-    layout_range(text, spans, font, end, end < text.len())
+    layout_range(text, spans, font, end, end < text.len(), palette)
 }
 
-fn layout_range(text: &str, spans: &[Span], font: f32, end: usize, suffix: bool) -> LayoutJob {
+fn layout_range(
+    text: &str,
+    spans: &[Span],
+    font: f32,
+    end: usize,
+    suffix: bool,
+    palette: &CodePalette,
+) -> LayoutJob {
     let mut job = LayoutJob::default();
     let normal = TextFormat {
         font_id: FontId::monospace(font),
-        color: Color32::from_rgb(213, 220, 230),
+        color: palette.text,
         ..Default::default()
     };
     let mut cursor = 0;
     for span in spans {
         job.append(&text[cursor..span.start], 0.0, normal.clone());
         let color = match span.kind {
-            TokenKind::Keyword => Color32::from_rgb(193, 151, 230),
-            TokenKind::String => Color32::from_rgb(169, 204, 148),
-            TokenKind::Comment => Color32::from_rgb(145, 170, 155),
-            TokenKind::Number => Color32::from_rgb(229, 177, 113),
+            TokenKind::Keyword => palette.syntax.keyword,
+            TokenKind::String => palette.syntax.string,
+            TokenKind::Comment => palette.syntax.comment,
+            TokenKind::Number => palette.syntax.number,
         };
         job.append(
             &text[span.start..span.end],
@@ -417,43 +428,56 @@ mod tests {
     use super::*;
 
     #[test]
-    fn syntax_comments_are_readable_on_every_code_background() {
-        fn luminance(color: Color32) -> f64 {
-            let linear = |channel: u8| {
-                let value = f64::from(channel) / 255.0;
-                if value <= 0.04045 {
-                    value / 12.92
-                } else {
-                    ((value + 0.055) / 1.055).powf(2.4)
-                }
-            };
-            0.2126 * linear(color.r()) + 0.7152 * linear(color.g()) + 0.0722 * linear(color.b())
-        }
-
-        let text = "// review this change";
-        let spans = [Span {
-            start: 0,
-            end: text.len(),
-            kind: TokenKind::Comment,
-        }];
-        for job in [
-            layout(text, &spans, 13.0),
-            window_layout(text, &spans, 0..text.len(), 13.0),
-        ] {
-            let foreground = job
-                .sections
-                .iter()
-                .find(|section| section.byte_range == (0..text.len()))
-                .unwrap()
-                .format
-                .color;
-            for (name, background) in [
-                ("addition", Color32::from_rgb(27, 55, 42)),
-                ("deletion", Color32::from_rgb(66, 35, 40)),
-                ("context", Color32::from_rgb(24, 27, 33)),
+    fn syntax_spans_use_the_palette_colors_in_every_theme() {
+        let text = "if \"a\" 1 // c";
+        let spans = [
+            Span {
+                start: 0,
+                end: 2,
+                kind: TokenKind::Keyword,
+            },
+            Span {
+                start: 3,
+                end: 6,
+                kind: TokenKind::String,
+            },
+            Span {
+                start: 7,
+                end: 8,
+                kind: TokenKind::Number,
+            },
+            Span {
+                start: 9,
+                end: text.len(),
+                kind: TokenKind::Comment,
+            },
+        ];
+        for id in crate::theme::ThemeId::ALL {
+            let palette = &id.theme().code;
+            let expected = [
+                palette.syntax.keyword,
+                palette.syntax.string,
+                palette.syntax.number,
+                palette.syntax.comment,
+            ];
+            for job in [
+                layout(text, &spans, 13.0, palette),
+                window_layout(text, &spans, 0..text.len(), 13.0, palette),
             ] {
-                let contrast = (luminance(foreground) + 0.05) / (luminance(background) + 0.05);
-                assert!(contrast >= 4.5, "{name} comment contrast: {contrast:.2}:1");
+                for (span, color) in spans.iter().zip(expected) {
+                    let section = job
+                        .sections
+                        .iter()
+                        .find(|section| section.byte_range == (span.start..span.end))
+                        .unwrap();
+                    assert_eq!(section.format.color, color, "{id:?} {:?}", span.kind);
+                }
+                assert!(
+                    job.sections
+                        .iter()
+                        .any(|section| section.format.color == palette.text),
+                    "{id:?} plain text"
+                );
             }
         }
     }

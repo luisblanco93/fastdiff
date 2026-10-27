@@ -3,6 +3,7 @@ use crate::{
     render::DiffPresentation,
     sidebar::FileTree,
     state::Preferences,
+    theme::ThemeId,
     worker::{Event, Worker},
 };
 use fastdiff_cli::{IpcServer, OpenRequest, OpenTarget};
@@ -625,7 +626,8 @@ pub struct Fastdiff {
 /// first; otherwise a light system appearance shows egui's light chrome around dark diff panes.
 fn apply_theme(context: &egui::Context) {
     context.set_theme(egui::Theme::Dark);
-    context.set_visuals(egui::Visuals::dark());
+    context.set_visuals(ThemeId::Fastdiff.theme().visuals());
+    crate::theme::install(context, crate::theme::Active::default());
     // The native title bar is outside egui's visuals and follows the system appearance.
     context.send_viewport_cmd(egui::ViewportCommand::SetTheme(egui::SystemTheme::Dark));
 }
@@ -951,7 +953,7 @@ impl Fastdiff {
                 ui.label(notice);
             }
             if let Some(error) = &tab.error {
-                ui.colored_label(egui::Color32::from_rgb(235, 146, 138), error);
+                ui.colored_label(ui.visuals().error_fg_color, error);
             }
             if let Some(presentation) = &mut tab.presentation {
                 presentation.set_layout(
@@ -971,7 +973,7 @@ impl Fastdiff {
                     presentation.lines.last()
                 {
                     ui.colored_label(
-                        egui::Color32::from_rgb(229, 177, 113),
+                        ui.visuals().warn_fg_color,
                         format!("Rendering limited to 100,000 rows; {omitted} rows omitted"),
                     );
                 }
@@ -1119,7 +1121,7 @@ impl Fastdiff {
                 let icon =
                     egui::Rect::from_center_size(slot.center(), egui::Vec2::splat(TAB_ICON_SIZE));
                 let icon_color = if selected {
-                    ui.visuals().selection.stroke.color
+                    crate::theme::active(ui.ctx()).app_theme().accent()
                 } else {
                     ui.visuals().weak_text_color()
                 };
@@ -1237,7 +1239,7 @@ impl Fastdiff {
                     frame.response.rect.left_bottom(),
                     frame.response.rect.right_bottom(),
                 ],
-                egui::Stroke::new(2.0, ui.visuals().selection.stroke.color),
+                egui::Stroke::new(2.0, crate::theme::active(ui.ctx()).app_theme().accent()),
             );
         }
     }
