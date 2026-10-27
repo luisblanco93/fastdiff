@@ -115,10 +115,7 @@ pub struct SyntaxColors {
     pub string: Color32,
     pub comment: Color32,
     pub number: Color32,
-    // Read once the lexer emits function and type tokens.
-    #[allow(dead_code)]
     pub function: Color32,
-    #[allow(dead_code)]
     pub ty: Color32,
 }
 

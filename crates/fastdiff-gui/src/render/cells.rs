@@ -405,6 +405,8 @@ fn layout_range(
             TokenKind::String => palette.syntax.string,
             TokenKind::Comment => palette.syntax.comment,
             TokenKind::Number => palette.syntax.number,
+            TokenKind::Function => palette.syntax.function,
+            TokenKind::Type => palette.syntax.ty,
         };
         job.append(
             &text[span.start..span.end],
@@ -429,7 +431,7 @@ mod tests {
 
     #[test]
     fn syntax_spans_use_the_palette_colors_in_every_theme() {
-        let text = "if \"a\" 1 // c";
+        let text = "if \"a\" 1 Vec run // c";
         let spans = [
             Span {
                 start: 0,
@@ -448,6 +450,16 @@ mod tests {
             },
             Span {
                 start: 9,
+                end: 12,
+                kind: TokenKind::Type,
+            },
+            Span {
+                start: 13,
+                end: 16,
+                kind: TokenKind::Function,
+            },
+            Span {
+                start: 17,
                 end: text.len(),
                 kind: TokenKind::Comment,
             },
@@ -458,6 +470,8 @@ mod tests {
                 palette.syntax.keyword,
                 palette.syntax.string,
                 palette.syntax.number,
+                palette.syntax.ty,
+                palette.syntax.function,
                 palette.syntax.comment,
             ];
             for job in [
