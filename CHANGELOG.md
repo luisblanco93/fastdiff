@@ -4,6 +4,10 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+### Added
+
+- Markdown documents (`.md`, `.markdown`) open as a rendered preview, and a selected Markdown file in the changes view has a **Preview** button that opens it rendered. **Preview / Source** or Ctrl+Shift+V switches to the raw text. The preview uses a larger, centered reading column, draws body text and headings in Segoe UI on Windows, and follows the font zoom. Images are not loaded, only `http`, `https`, and `mailto` links open, and files over 512 KiB show the source.
+
 ## [1.3.1] - 2026-10-27
 
 ### Added

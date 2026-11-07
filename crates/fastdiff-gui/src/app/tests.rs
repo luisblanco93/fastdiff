@@ -115,6 +115,7 @@ pub(super) fn fixture() -> ReviewTab {
         search_request_id: 0,
         search_hits: Vec::new(),
         search_index: 0,
+        markdown: Default::default(),
         context: egui::Context::default(),
     }
 }

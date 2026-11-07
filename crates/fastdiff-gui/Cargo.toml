@@ -12,6 +12,8 @@ fastdiff-cli.workspace = true
 eframe.workspace = true
 egui.workspace = true
 egui_extras = { version = "=0.33.3", default-features = false, features = ["svg"] }
+ab_glyph = "=0.2.32"
+egui_commonmark = { version = "=0.22.0", default-features = false, features = ["pulldown_cmark"] }
 serde_json.workspace = true
 notify = "=8.2.0"
 unicode-width = { version = "=0.2.2", default-features = false }
