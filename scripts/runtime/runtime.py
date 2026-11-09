@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import uuid
 import zipfile
 from urllib.error import HTTPError
@@ -91,10 +92,122 @@ def fetch_json(url: str) -> dict:
         return json.load(response)
 
 
-def download_file(url: str, destination: Path) -> None:
+DOWNLOAD_CHUNK = 64 * 1024
+PROGRESS_INTERVAL = 0.1  # seconds between redraws of the updating line
+BAR_WIDTH = 16  # characters; keeps realistic lines under 80 columns
+
+
+def report_step(message: str) -> None:
+    """Report an update step on stderr, so stdout keeps only the final result.
+
+    Progress output is optional: a closed pipe or missing stderr must not fail the install.
+    """
+    if sys.stderr is None:
+        return
+    try:
+        print(message, file=sys.stderr, flush=True)
+    except (OSError, ValueError):
+        pass
+
+
+def format_size(count: int) -> str:
+    return f"{count / (1024 * 1024):.1f} MiB"
+
+
+def format_progress(name: str, received: int, total: int | None) -> str:
+    """One progress line: an ASCII bar and percent when the size is known, else the bytes received."""
+    if not total:
+        return f"{name}  {format_size(received)}"
+    percent = min(received * 100 // total, 100)
+    filled = percent * BAR_WIDTH // 100
+    bar = "#" * filled + "-" * (BAR_WIDTH - filled)
+    return f"{name} [{bar}] {percent:3d}%  {format_size(received)} / {format_size(total)}"
+
+
+def content_length(headers) -> int | None:
+    try:
+        value = int(headers.get("Content-Length"))
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+class DownloadProgress:
+    """One updating line on a terminal; a start and a done line when output is redirected."""
+
+    def __init__(self, name: str, total: int | None, stream=None, clock=time.monotonic) -> None:
+        self.name = name
+        self.total = total
+        self.stream = stream if stream is not None else sys.stderr
+        self.enabled = self.stream is not None  # cleared when the stream fails: progress is optional
+        self.clock = clock
+        try:
+            self.interactive = bool(self.stream.isatty())
+        except (AttributeError, ValueError):
+            self.interactive = False
+        self.drawn = 0  # width of the current updating line; 0 when none is open
+        self.last = None
+
+    def emit(self, text: str) -> None:
+        """Write progress text; a broken or missing stream turns progress off instead of failing."""
+        if not self.enabled:
+            return
+        try:
+            self.stream.write(text)
+            self.stream.flush()
+        except (OSError, ValueError):
+            self.enabled = False
+
+    def start(self) -> None:
+        if not self.interactive:
+            self.emit(f"Downloading {self.name}...\n")
+
+    def update(self, received: int) -> None:
+        if not self.interactive:
+            return
+        now = self.clock()
+        if self.last is not None and now - self.last < PROGRESS_INTERVAL:
+            return
+        self.last = now
+        self.draw(received)
+
+    def draw(self, received: int) -> None:
+        text = format_progress(self.name, received, self.total)
+        self.drawn = max(self.drawn, len(text))
+        self.emit("\r" + text.ljust(self.drawn))
+
+    def finish(self, received: int) -> None:
+        if self.interactive:
+            self.draw(received)
+            self.abort()
+        else:
+            self.emit(f"Downloaded {self.name} ({format_size(received)})\n")
+
+    def abort(self) -> None:
+        """End an open updating line so a following error message starts on its own line."""
+        if self.drawn:
+            self.emit("\n")
+            self.drawn = 0
+
+
+def download_file(url: str, destination: Path, name: str | None = None) -> None:
     with urlopen(Request(url, headers={"User-Agent": "fastdiff-installer"}), timeout=60) as source:
         with destination.open("xb") as output:
-            shutil.copyfileobj(source, output)
+            if name is None:
+                shutil.copyfileobj(source, output)
+                return
+            progress = DownloadProgress(name, content_length(source.headers))
+            received = 0
+            progress.start()
+            try:
+                while chunk := source.read(DOWNLOAD_CHUNK):
+                    output.write(chunk)
+                    received += len(chunk)
+                    progress.update(received)
+            except BaseException:
+                progress.abort()
+                raise
+            progress.finish(received)
 
 
 def source_revision() -> str:
@@ -215,7 +328,7 @@ def download_assets(version: str, names: list[str], stage: Path) -> None:
             raise ValueError(f"Invalid release asset name: {name}")
     for name in ["SHA256SUMS", *names]:
         try:
-            download_file(f"{base}/{name}", stage / name)
+            download_file(f"{base}/{name}", stage / name, name=None if name == "SHA256SUMS" else name)
         except HTTPError as error:
             if error.code != 404:
                 raise
@@ -685,11 +798,14 @@ def setup(version: str, host: str, root: Path) -> None:
     names = [archive_name(version, target) for target in targets]
     root.mkdir(parents=True, exist_ok=True)
     installed = []
+    report_step(f"Installing fastdiff {version}")
     with tempfile.TemporaryDirectory(prefix=".download-", dir=root) as temporary:
         stage = Path(temporary)
         download_assets(version, names, stage)
+        report_step("Verifying checksums")
         verify_checksums(stage, names)
         for target, name in zip(targets, names):
+            report_step(f"Installing {name}")
             installed.append(install_package(stage / name, roots[target], version, target))
         launcher = installed[0] / "bin" / ("fastdiff.exe" if host == "windows" else "fastdiff")
         gui = launcher.with_name("fastdiff-gui.exe" if host == "windows" else "fastdiff-gui")
@@ -701,6 +817,7 @@ def setup(version: str, host: str, root: Path) -> None:
                 raise ValueError("Linux and Windows release revisions do not match")
             receipt = {**receipt, "windows_gui": str(installed[1] / "bin" / "fastdiff-gui.exe")}
         # Preserve version folders even on failure: the receipt may already reference them.
+        report_step("Refreshing the dff command")
         activate_command(root, version, host, receipt)
     remove_legacy_installs(host, [root], (roots["windows"],) if host == "wsl" else ())
     print(f"Installed fastdiff {version}; invoke dff to open Git changes")
