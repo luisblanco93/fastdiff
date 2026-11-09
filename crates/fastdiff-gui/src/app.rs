@@ -1,6 +1,9 @@
 use crate::{
     benchmark::{Benchmark, TabLocus, TabState},
-    render::DiffPresentation,
+    render::{
+        DiffPresentation,
+        markdown::{MARKDOWN_LIMIT_NOTICE, MarkdownDisplay, MarkdownView},
+    },
     settings::SettingsStore,
     sidebar::FileTree,
     state::Preferences,
@@ -100,6 +103,9 @@ fn tab_suffixes(titles: &[&str]) -> Vec<Option<String>> {
         .collect()
 }
 
+mod markdown;
+#[cfg(test)]
+mod markdown_tests;
 mod reflog;
 #[cfg(test)]
 mod reflog_paging_tests;
@@ -163,6 +169,7 @@ pub struct ReviewTab {
     search_request_id: u64,
     search_hits: Vec<usize>,
     search_index: usize,
+    markdown: MarkdownView,
     context: egui::Context,
 }
 
@@ -204,6 +211,7 @@ impl ReviewTab {
             search_request_id: 0,
             search_hits: Vec::new(),
             search_index: 0,
+            markdown: MarkdownView::default(),
             context: context.clone(),
         }
     }
@@ -248,6 +256,7 @@ impl ReviewTab {
         self.generation += 1;
         self.selected = Some(file.path.clone());
         self.document_mode = false;
+        self.markdown.clear();
         self.loading = true;
         self.provisional = false;
         self.error = None;
@@ -545,6 +554,7 @@ impl ReviewTab {
                 return;
             }
             self.document_mode = false;
+            self.markdown.clear();
             self.reveal_requested = false;
             self.presentation = None;
             self.comparison = 0;
@@ -604,6 +614,7 @@ impl ReviewTab {
         if self.search_hits.is_empty() {
             return;
         }
+        self.show_markdown_source();
         self.search_index = if next {
             (self.search_index + 1) % self.search_hits.len()
         } else {
@@ -731,6 +742,9 @@ impl Fastdiff {
                 tab.clear_search_results();
             }
             tab.document_mode = document_mode;
+            if !document_mode {
+                tab.markdown.clear();
+            }
             tab.selected = request.file.or_else(|| tab.selected.clone());
             tab.view = request.view;
             if tab.foreground {
@@ -963,6 +977,8 @@ impl Fastdiff {
                 });
         }
         egui::CentralPanel::default().show(context, |ui| {
+            let markdown_eligible = tab.markdown_eligible();
+            let markdown_path = tab.document_location();
             Self::path_row(tab, ui, &mut self.preferences.unified);
             if let Some(notice) = &tab.notice {
                 ui.label(notice);
@@ -992,23 +1008,42 @@ impl Fastdiff {
                         format!("Rendering limited to 100,000 rows; {omitted} rows omitted"),
                     );
                 }
-                let marker_visible = presentation.show_tracked(
-                    ui,
-                    egui::Id::new((
-                        "diff",
-                        self.selected_tab,
-                        Arc::as_ptr(&presentation.document),
-                        tab.view as u8,
-                    )),
-                    self.preferences.font_size,
-                    self.benchmark.marker(&TabLocus::new(
-                        &tab.request,
-                        &tab.root,
-                        tab.selected.as_ref(),
-                        tab.view,
-                    )),
-                );
-                self.benchmark.rendered(marker_visible);
+                let marker = self.benchmark.marker(&TabLocus::new(
+                    &tab.request,
+                    &tab.root,
+                    tab.selected.as_ref(),
+                    tab.view,
+                ));
+                // A pending benchmark marker is only drawn by the source view.
+                let display = if markdown_eligible && marker.is_none() {
+                    tab.markdown.resolve(&presentation.document)
+                } else {
+                    MarkdownDisplay::Source
+                };
+                if display == MarkdownDisplay::TooLarge {
+                    ui.colored_label(ui.visuals().warn_fg_color, MARKDOWN_LIMIT_NOTICE);
+                }
+                if display == MarkdownDisplay::Rendered {
+                    // The id omits the document, so a reload keeps the scroll position.
+                    tab.markdown.show(
+                        ui,
+                        ("markdown", self.selected_tab, &markdown_path),
+                        self.preferences.font_size,
+                    );
+                } else {
+                    let marker_visible = presentation.show_tracked(
+                        ui,
+                        egui::Id::new((
+                            "diff",
+                            self.selected_tab,
+                            Arc::as_ptr(&presentation.document),
+                            tab.view as u8,
+                        )),
+                        self.preferences.font_size,
+                        marker,
+                    );
+                    self.benchmark.rendered(marker_visible);
+                }
             } else if tab.loading {
                 ui.centered_and_justified(|ui| {
                     ui.label(if tab.document_mode {
@@ -1336,6 +1371,7 @@ impl Fastdiff {
             egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, ui.is_enabled(), search_label)
         });
         if response.changed() {
+            tab.show_markdown_source();
             tab.clear_search_results();
             tab.request_search();
         }
@@ -1366,7 +1402,7 @@ impl Fastdiff {
             )
             .clicked()
         {
-            tab.toggle_document(true);
+            tab.open_full_file();
         }
         if ui
             .add_enabled(
@@ -1422,19 +1458,26 @@ impl Fastdiff {
             egui::Layout::right_to_left(egui::Align::Center),
             |ui| {
                 Self::copy_menu(tab, ui);
-                ui.add_enabled_ui(!tab.document_mode, |ui| {
-                    for (label, value) in [("Unified", true), ("Side by side", false)] {
-                        if ui
-                            .add(egui::Button::selectable(*unified == value, label))
-                            .on_hover_text(shortcuts::binding_label(
-                                "Diff layout for all tabs (Ctrl+Shift+U)",
-                            ))
-                            .clicked()
-                        {
-                            *unified = value;
-                        }
+                if tab.markdown_eligible() {
+                    tab.markdown_mode_buttons(ui);
+                } else {
+                    if tab.markdown_selectable() {
+                        tab.markdown_open_button(ui);
                     }
-                });
+                    ui.add_enabled_ui(!tab.document_mode, |ui| {
+                        for (label, value) in [("Unified", true), ("Side by side", false)] {
+                            if ui
+                                .add(egui::Button::selectable(*unified == value, label))
+                                .on_hover_text(shortcuts::binding_label(
+                                    "Diff layout for all tabs (Ctrl+Shift+U)",
+                                ))
+                                .clicked()
+                            {
+                                *unified = value;
+                            }
+                        }
+                    });
+                }
                 let path_layout = egui::Layout::left_to_right(egui::Align::Center)
                     .with_main_align(egui::Align::Min)
                     .with_main_justify(true);

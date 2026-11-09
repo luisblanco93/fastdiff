@@ -4,7 +4,7 @@
 //! launch would cost startup time and memory for users who never see such text. The fallback is
 //! installed once, the first time a file name or diff row contains a glyph the defaults lack.
 
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 /// Largest font file read; guards against pathological or unexpected files.
 const MAX_FONT_BYTES: u64 = 128 * 1024 * 1024;
@@ -102,8 +102,27 @@ pub fn missing_glyphs<'a>(
     false
 }
 
-/// Appends the first usable system font to both families. Returns whether one was installed; a
-/// missing or unreadable font is a no-op, never an error.
+/// Appends `data` as the lowest-priority fallback of the Proportional, Monospace, and Markdown
+/// preview families. `add_font` keeps every font already registered, so this coexists with the
+/// preview font in either order. The preview family may not exist yet; it is then created with
+/// only this font and is never handed out until the preview font replaces that list.
+pub(crate) fn add_fallback(context: &egui::Context, name: &str, data: egui::FontData) {
+    let families = [
+        egui::FontFamily::Proportional,
+        egui::FontFamily::Monospace,
+        crate::render::markdown_font::preview_family(),
+    ]
+    .into_iter()
+    .map(|family| egui::epaint::text::InsertFontFamily {
+        family,
+        priority: egui::epaint::text::FontPriority::Lowest,
+    })
+    .collect();
+    context.add_font(egui::epaint::text::FontInsert::new(name, data, families));
+}
+
+/// Appends the first usable system font to the font families. Returns whether one was installed;
+/// a missing or unreadable font is a no-op, never an error.
 pub fn install(context: &egui::Context) -> bool {
     let Some(candidate) = first_usable(candidates(), is_readable_font) else {
         return false;
@@ -113,18 +132,7 @@ pub fn install(context: &egui::Context) -> bool {
     };
     let mut data = egui::FontData::from_owned(bytes);
     data.index = candidate.face;
-    let mut definitions = egui::FontDefinitions::default();
-    definitions
-        .font_data
-        .insert(FONT_NAME.to_owned(), Arc::new(data));
-    for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-        definitions
-            .families
-            .entry(family)
-            .or_default()
-            .push(FONT_NAME.to_owned());
-    }
-    context.set_fonts(definitions);
+    add_fallback(context, FONT_NAME, data);
     true
 }
 

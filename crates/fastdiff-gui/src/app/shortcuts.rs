@@ -39,6 +39,7 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ),
     ("Ctrl+K Ctrl+T", "Open Theme menu"),
     ("Ctrl+Shift+U", "Toggle unified layout"),
+    ("Ctrl+Shift+V", "Toggle Markdown preview"),
     ("Ctrl+Shift+K", "Collapse context"),
     ("Ctrl+Shift+C", "Copy path"),
     ("Ctrl+Alt+C", "Copy patch"),
@@ -76,6 +77,21 @@ fn consume(context: &egui::Context, modifiers: Modifiers, key: Key) -> bool {
                     Event::Key { key: pressed, pressed: true, modifiers: actual, .. }
                         if *pressed == key && actual.matches_exact(modifiers)
                 ))
+        });
+        input.events.len() != before
+    })
+}
+
+// Native egui-winit turns every Ctrl+V press into a paste and pushes no pressed key event, so
+// only the release reaches the app; kittest sends both events, which this matches once.
+fn consume_release(context: &egui::Context, modifiers: Modifiers, key: Key) -> bool {
+    context.input_mut(|input| {
+        let before = input.events.len();
+        input.events.retain(|event| {
+            !matches!(event,
+                Event::Key { key: released, pressed: false, modifiers: actual, .. }
+                    if *released == key && actual.matches_exact(modifiers)
+            )
         });
         input.events.len() != before
     })
@@ -125,6 +141,7 @@ impl Fastdiff {
         if consume(context, ctrl_alt, Key::F) {
             context.memory_mut(|memory| memory.request_focus(egui::Id::new("filename-filter")));
         } else if consume(context, ctrl, Key::F) {
+            tab.show_markdown_source();
             context.memory_mut(|memory| memory.request_focus(egui::Id::new("diff-search")));
         }
         if consume(context, Modifiers::SHIFT, Key::F3) {
@@ -158,6 +175,9 @@ impl Fastdiff {
         }
         if consume(context, ctrl_shift, Key::U) {
             self.preferences.unified = !self.preferences.unified;
+        }
+        if consume_release(context, ctrl_shift, Key::V) {
+            tab.toggle_markdown();
         }
         if consume(context, ctrl_shift, Key::K)
             && let Some(presentation) = &mut tab.presentation
