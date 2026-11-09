@@ -135,14 +135,17 @@ launch README.md
 sleep 2
 snap markdown
 
-# Last, because a theme picked from the menu is saved and later launches would use it.
+# The reflog view again in three more themes, each picked from the Theme dropdown. Last,
+# because a picked theme is saved and later launches would use it.
 launch . --file src/api.rs
 keys 'keystroke "5" using command down'
 sleep 2
-pick "Catppuccin Mocha" 195
-snap theme-catppuccin
+pick "Dark Modern" 117
+snap reflog-dark-modern
+pick "Dracula" 169
+snap reflog-dracula
 pick "GitHub Light" 239
-snap theme-github-light
+snap reflog-github-light
 
 pkill -f fastdiff-gui 2>/dev/null
 ls -l "$out" >>"$log"
