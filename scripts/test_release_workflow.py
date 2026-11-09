@@ -166,7 +166,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_macos_assets_are_built_checked_and_released(self):
         macos = self.jobs["macos"]
-        self.assertEqual(macos["runs-on"], "macos-14")
+        self.assertEqual(macos["runs-on"], "macos-15")
         self.assertIn("scripts/package-unix.sh", run_text(macos))
         self.assertIn("verify_tar_archive", run_text(macos))
         release = self.jobs["release-assets"]
