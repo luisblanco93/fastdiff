@@ -154,7 +154,11 @@ class PluginRuntimeTests(unittest.TestCase):
     def test_interpreter_path_keeps_the_macos_symlink_and_resolves_elsewhere(self) -> None:
         link = self.parent / "opt" / "python3"
         link.parent.mkdir()
-        link.symlink_to(Path(runtime.sys.executable).resolve())
+        try:
+            link.symlink_to(Path(runtime.sys.executable).resolve())
+        except OSError:
+            # Windows without Developer Mode or administrator rights cannot create symlinks.
+            self.skipTest("Creating symlinks requires Windows privileges")
         with patch.object(runtime.sys, "executable", str(link)):
             with patch.object(runtime.platform, "system", return_value="Darwin"):
                 self.assertEqual(runtime.interpreter_path(), str(link))
