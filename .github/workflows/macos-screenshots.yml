@@ -1,0 +1,31 @@
+name: macOS screenshots
+
+# Builds the macOS release app, opens it on a scripted demo repository, and uploads window
+# screenshots for the README. Builds only; runs no tests. Run it by hand when the UI changes:
+#   gh workflow run macos-screenshots.yml --ref main
+on:
+  push:
+    branches: ['feat/user/luis/lit-42-readme-screenshots']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - name: Build release
+        run: cargo build --release --locked -p fastdiff-cli -p fastdiff-gui
+      - name: Prepare demo repository
+        run: bash .github/scripts/readme-demo-repo.sh "$RUNNER_TEMP/demo"
+      - name: Take screenshots
+        run: bash .github/scripts/readme-screenshots.sh "$RUNNER_TEMP/demo/tasks" "$RUNNER_TEMP/shots"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: readme-screenshots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: warn
