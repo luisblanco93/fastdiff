@@ -5,8 +5,6 @@ name: macOS screenshots
 # then copy the PNGs from the readme-screenshots artifact into docs/assets/:
 #   gh workflow run macos-screenshots.yml --ref main
 on:
-  push:
-    branches: ['feat/user/luis/lit-42-readme-screenshots']
   workflow_dispatch:
 
 permissions:
