@@ -1,7 +1,8 @@
 name: macOS screenshots
 
 # Builds the macOS release app, opens it on a scripted demo repository, and uploads window
-# screenshots for the README. Builds only; runs no tests. Run it by hand when the UI changes:
+# screenshots for the README. Builds only; runs no tests. Run it by hand when the UI changes,
+# then copy the PNGs from the readme-screenshots artifact into docs/assets/:
 #   gh workflow run macos-screenshots.yml --ref main
 on:
   push:
