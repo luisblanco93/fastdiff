@@ -83,39 +83,57 @@ impl Fastdiff {
         let titles = tab_titles(&self.tabs);
         let suffixes = tab_suffixes(&titles);
         let mut close = None;
-        ui.allocate_ui_with_layout(
-            egui::vec2(ui.available_width(), TAB_ROW_HEIGHT),
-            egui::Layout::right_to_left(egui::Align::Center),
-            |ui| {
-                Self::global_controls(ui, &mut self.help_open, &mut self.appearance);
-                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    egui::ScrollArea::horizontal()
-                        .id_salt("repository-tabs")
-                        .auto_shrink([false, true])
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing.x = 0.0;
-                                for (index, tab) in self.tabs.iter().enumerate() {
-                                    let title = titles[index];
-                                    let selected = index == self.selected_tab;
-                                    let view = TabView {
-                                        title,
-                                        name: tab_name(title),
-                                        folder: suffixes[index].as_deref(),
-                                        selected,
-                                        is_document: tab.request.target == OpenTarget::Document,
-                                        reveal: selected && reveal_selected,
-                                    };
-                                    Self::tab(ui, view, |action| match action {
-                                        TabAction::Select => self.selected_tab = index,
-                                        TabAction::Close => close = Some(index),
-                                    });
-                                }
-                            });
-                        });
-                });
-            },
+        // The tabs are created before the window-wide controls so keyboard and screen-reader
+        // order reach them first. The controls sit at the right edge, so the tabs reserve the
+        // width the controls had on the previous pass.
+        let (_, row) = ui.allocate_space(egui::vec2(ui.available_width(), TAB_ROW_HEIGHT));
+        let controls_width = ui
+            .data(|data| data.get_temp::<f32>(controls_width_id(ui)))
+            .unwrap_or(0.0);
+        let gap = ui.spacing().item_spacing.x;
+        let split = (row.max.x - controls_width).max(row.min.x);
+        let tabs_rect = row.with_max_x((split - gap).max(row.min.x));
+        let mut tabs_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(tabs_rect)
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
+        egui::ScrollArea::horizontal()
+            .id_salt("repository-tabs")
+            .auto_shrink([false, true])
+            .show(&mut tabs_ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    for (index, tab) in self.tabs.iter().enumerate() {
+                        let title = titles[index];
+                        let selected = index == self.selected_tab;
+                        let view = TabView {
+                            title,
+                            name: tab_name(title),
+                            folder: suffixes[index].as_deref(),
+                            selected,
+                            is_document: tab.request.target == OpenTarget::Document,
+                            reveal: selected && reveal_selected,
+                        };
+                        Self::tab(ui, view, |action| match action {
+                            TabAction::Select => self.selected_tab = index,
+                            TabAction::Close => close = Some(index),
+                        });
+                    }
+                });
+            });
+        let mut controls_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(row.with_min_x(split))
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+        );
+        Self::global_controls(&mut controls_ui, &mut self.help_open, &mut self.appearance);
+        let measured = controls_ui.min_rect().width();
+        if (measured - controls_width).abs() > 0.5 {
+            let id = controls_width_id(ui);
+            ui.data_mut(|data| data.insert_temp(id, measured));
+            ui.ctx().request_discard("global controls changed width");
+        }
         ui.separator();
         if let Some(index) = close {
             self.close_tab(index);
@@ -164,25 +182,13 @@ impl Fastdiff {
     }
 
     /// Window-wide controls: they apply to every tab, so they sit beside the tabs, not in a tab's toolbar.
-    /// Called inside a right-to-left layout, so the widgets are added in reverse visual order.
+    /// Added left to right in visual order, so keyboard and screen-reader order match what is seen.
     fn global_controls(
         ui: &mut egui::Ui,
         help_open: &mut bool,
         appearance: &mut theme_menu::Appearance,
     ) {
-        if ui.small_button("Help").clicked() {
-            *help_open = true;
-        }
-        appearance.show_menu(ui);
         let zoom = ui.ctx().zoom_factor();
-        if ui
-            .small_button("UI +")
-            .on_hover_text("Scale the whole interface")
-            .clicked()
-        {
-            ui.ctx().set_zoom_factor((zoom + 0.1).clamp(0.75, 2.0));
-        }
-        ui.small(format!("{:.0}%", zoom * 100.0));
         if ui
             .small_button("UI −")
             .on_hover_text("Scale the whole interface")
@@ -190,7 +196,23 @@ impl Fastdiff {
         {
             ui.ctx().set_zoom_factor((zoom - 0.1).clamp(0.75, 2.0));
         }
+        ui.small(format!("{:.0}%", zoom * 100.0));
+        if ui
+            .small_button("UI +")
+            .on_hover_text("Scale the whole interface")
+            .clicked()
+        {
+            ui.ctx().set_zoom_factor((zoom + 0.1).clamp(0.75, 2.0));
+        }
+        appearance.show_menu(ui);
+        if ui.small_button("Help").clicked() {
+            *help_open = true;
+        }
     }
+}
+
+fn controls_width_id(ui: &egui::Ui) -> egui::Id {
+    ui.id().with("global-controls-width")
 }
 
 /// Remembers the selection in egui's temp data and reports whether it changed since the last

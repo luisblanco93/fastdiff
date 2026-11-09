@@ -683,3 +683,24 @@ fn tab_icons_and_folder_suffixes_are_not_keyboard_stops() {
     assert_eq!(two - one, 2, "a tab adds its name and close control only");
     assert_eq!(duplicate, two, "the folder suffix adds no focus stop");
 }
+
+#[test]
+fn keyboard_order_reaches_the_tabs_before_the_global_controls() {
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(1100.0, 720.0))
+        .build_state(|context, app| app.show(context), viewer());
+    harness.run();
+    harness.key_press(egui::Key::Tab);
+    harness.run();
+    assert!(
+        harness
+            .get_by_role_and_label(Role::Tab, "repo")
+            .is_focused()
+    );
+    for _ in 0..2 {
+        harness.key_press(egui::Key::Tab);
+        harness.run();
+    }
+    // Tab name, its close control, then the controls in the order they are drawn.
+    assert!(harness.get_by_label("UI −").is_focused());
+}
