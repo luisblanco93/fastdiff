@@ -108,15 +108,21 @@ launch() {
     sleep 1
 }
 
-launch . --file src/api.rs
-snap review
+# pick <theme name> <fallback y from window top>: opens the Theme dropdown and clicks the theme.
+pick() {
+    press "Theme ⏷" click 86 46
+    sleep 2
+    press "$1" click 150 "$2"
+    sleep 1
+    mouse move 5 5
+    sleep 2
+}
 
+# Hero: the diff with the reflog panel open.
+launch . --file src/api.rs
 keys 'keystroke "5" using command down'
 sleep 2
 snap reflog
-
-launch . --view unpushed --file src/store.rs
-snap unpushed
 
 launch . --file src/store.rs
 keys 'keystroke "f" using command down'
@@ -125,27 +131,18 @@ keys 'keystroke "due"'
 sleep 2
 snap search
 
-launch . --file src/api.rs
-keys 'key code 122'
-sleep 2
-snap shortcuts
-
 launch README.md
 sleep 2
 snap markdown
 
-# Last, because the theme picked here is saved and later launches would use it.
+# Last, because a theme picked from the menu is saved and later launches would use it.
 launch . --file src/api.rs
-press "Theme ⏷" click 86 46
+keys 'keystroke "5" using command down'
 sleep 2
-press Dracula move 150 175
-sleep 2
-snap theme-menu
-press Dracula click 150 175
-sleep 1
-mouse move 5 5
-sleep 2
-snap theme
+pick "Catppuccin Mocha" 195
+snap theme-catppuccin
+pick "GitHub Light" 239
+snap theme-github-light
 
 pkill -f fastdiff-gui 2>/dev/null
 ls -l "$out" >>"$log"
