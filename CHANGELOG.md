@@ -7,6 +7,7 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 ### Added
 
 - Markdown documents (`.md`, `.markdown`) open as a rendered preview, and a selected Markdown file in the changes view has a **Preview** button that opens it rendered. **Preview / Source** or Ctrl+Shift+V switches to the raw text. The preview uses a larger, centered reading column, draws body text and headings in Segoe UI on Windows, and follows the font zoom. Images are not loaded, only `http`, `https`, and `mailto` links open, and files over 512 KiB show the source.
+- `dff --update` now shows what it is doing: the version and archives being installed, download progress with sizes (one updating line with a progress bar in a terminal, plain lines when output is redirected), and the checksum, install, and refresh steps. The progress goes to stderr, so the final result line stays on stdout.
 
 ## [1.3.1] - 2026-10-27
 

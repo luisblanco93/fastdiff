@@ -162,7 +162,7 @@ class PluginRuntimeTests(unittest.TestCase):
                 self.assertEqual(runtime.interpreter_path(), str(link.resolve()))
 
     def test_missing_release_asset_is_reported_clearly(self) -> None:
-        def download(url, destination):
+        def download(url, destination, name=None):
             if url.endswith(".tar.gz"):
                 raise HTTPError(url, 404, "Not Found", {}, None)
         with patch.object(runtime, "download_file", side_effect=download):
