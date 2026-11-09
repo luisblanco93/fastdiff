@@ -133,6 +133,9 @@ impl Fastdiff {
             let id = controls_width_id(ui);
             ui.data_mut(|data| data.insert_temp(id, measured));
             ui.ctx().request_discard("global controls changed width");
+        } else {
+            let selection = (self.selected_tab, self.tabs.len());
+            ui.data_mut(|data| data.insert_temp(selection_id(ui), selection));
         }
         ui.separator();
         if let Some(index) = close {
@@ -215,16 +218,15 @@ fn controls_width_id(ui: &egui::Ui) -> egui::Id {
     ui.id().with("global-controls-width")
 }
 
-/// Remembers the selection in egui's temp data and reports whether it changed since the last
-/// frame, which is when the selected tab is scrolled into view.
+fn selection_id(ui: &egui::Ui) -> egui::Id {
+    ui.id().with("selected-repository-tab")
+}
+
+/// Whether the selection changed since the last kept pass, which is when the selected tab is
+/// scrolled into view. Read-only: a pass that is discarded must not consume the change.
 fn reveal_selected(ui: &egui::Ui, selected_tab: usize, tab_count: usize) -> bool {
-    let id = ui.id().with("selected-repository-tab");
-    let selection = (selected_tab, tab_count);
-    ui.data_mut(|data| {
-        let previous = data.get_temp::<(usize, usize)>(id);
-        data.insert_temp(id, selection);
-        previous != Some(selection)
-    })
+    let previous = ui.data(|data| data.get_temp::<(usize, usize)>(selection_id(ui)));
+    previous != Some((selected_tab, tab_count))
 }
 
 /// The path each tab is named after: the file for a document tab, the repository root otherwise.
