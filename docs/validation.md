@@ -4,6 +4,34 @@ This page indexes validation evidence for fastdiff. Record evidence for a releas
 
 ## Current release
 
+### Release 1.4.0
+
+Recorded 2026-11-09 from revision `fc56a23a9e9ab05752f2ca9c272a3dab481b8b39`. Tagged CI run: [42692509973](https://github.com/luisblanco93/fastdiff/actions/runs/42692509973), dispatched by the `v1.4.0` tag push.
+
+GitHub retired the `macos-14` runner, so the release pull request (#48, LIT-43) moved the `macos` job to `macos-15`; this run is the first release build on that image. The local Windows gate also exposed a script test that needs the Windows symlink privilege; #48 makes it skip when symlinks cannot be created, as other script tests already do. Evidence below is for the commit above, whose tree is identical to the locally checked branch head `5fd5ade`.
+
+#### Checks run
+- CI on Ubuntu 22.04, macOS 15 (Apple Silicon), and Windows (Rust 1.90, Python 3.11): fmt, Clippy `-D warnings`, workspace and script tests, release builds, native window smoke checks, and packaging passed (`linux`, `macos`, `windows`, `windows-package`, `release-assets`, `draft-release`, `result` all succeeded). The `draft-release` job created the draft (commit `fc56a23`, four assets) and verified checksums, archive contents, and byte-identical paired WSL helpers.
+- Local gate on Linux/WSL2 (Rust 1.90.0, Python 3.11.15): fmt, Clippy `--workspace --all-targets --locked -D warnings`, `cargo test --workspace --locked` (`fastdiff-gui` 392 passed, 2 ignored), and `cargo build --release --locked --workspace` at `9a14ec0`; 320 Python tests (3 skipped) at `5fd5ade`. The only change between the two is a Python test file.
+- Local gate on native Windows (MSVC, Rust 1.90, clean clone) at `9a14ec0`: fmt, Clippy `--locked -D warnings`, `cargo test --workspace --locked -- --test-threads=2` (`fastdiff-gui` 383 passed, 1 ignored), release build, and `scripts/test-package-windows.ps1`; 320 Python tests (10 skipped) with Python 3.11.15 at `5fd5ade`. The first Python run at `9a14ec0` had two errors: PyYAML was not installed, and `test_interpreter_path_keeps_the_macos_symlink_and_resolves_elsewhere` failed with WinError 1314 because the account cannot create symlinks.
+- Downloaded the three archives and `SHA256SUMS` from the published release and verified them with `sha256sum -c`; checked each archive's file list (binaries plus `licenses/material-icons-LICENSE` and `licenses/color-themes-NOTICE`; the Windows archive also has `wsl/fastdiff`). The `wsl/fastdiff` helper in the Windows archive has the same SHA-256 as the Linux `bin/fastdiff` (`af75477fd77dbb15f3149296416347ec86792fa9526e48f7e217cef5bf79856a`).
+- Linux x86_64 archive on WSL2 Ubuntu: `fastdiff --version` printed `fastdiff 1.4.0 (helper protocol 5)` and `--help` ran.
+- macOS: the README screenshots were taken from a `macos-15` CI release build of `73b806e`, which has the same app source as this release apart from the version number ([42687467955](https://github.com/luisblanco93/fastdiff/actions/runs/42687467955)). They show the Markdown preview, the reflog panel, search, and themes picked from the Theme menu by mouse clicks.
+
+#### Artifact verification
+| Archive | Bytes | SHA-256 |
+|---|---:|---|
+| `fastdiff-1.4.0-linux-x64.tar.gz` | 5,795,529 | `07101ea83ff7b60b601d54157314ba3126976bf7fa0d6ff291c912de6da164be` |
+| `fastdiff-1.4.0-macos-arm64.tar.gz` | 3,759,643 | `5e8e27501c74e416da291875a9e43ff11ba61516029f5763abe836eca20c2b19` |
+| `fastdiff-1.4.0-windows-x64.zip` | 4,331,147 | `b13945867f10e741d8fe5fab84f36a5db22e42b1139deb1f9cbe9fee3a6e6ae3` |
+
+#### Limits
+- No interactive window was opened by hand from the release archives. The Markdown preview and the new tab keyboard order are covered by headless UI tests; the macOS screenshots come from CI builds, not from the archive on a Mac, and the macOS binaries are not signed or notarized.
+- Windows-to-WSL was not exercised on this build.
+- `test_interpreter_path_keeps_the_macos_symlink_and_resolves_elsewhere` is skipped on Windows machines that cannot create symlinks, so the local Windows run did not exercise it.
+- Performance was not measured.
+- Release 1.3.1 has no section on this page.
+
 ### Release 1.3.0
 
 Recorded 2026-10-27 from revision `a8b3e9f35faa52a6dac843688728453b9e5dfa8b`. Tagged CI run: [40581234761](https://github.com/luisblanco93/fastdiff/actions/runs/40581234761), dispatched by the `v1.3.0` tag push.
