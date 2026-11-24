@@ -3,6 +3,7 @@
 //! The text comes from rows the GUI already received, so no helper protocol change is needed and
 //! nothing here reads files or the network. Images degrade because no file or HTTP loader exists.
 
+use super::markdown_blocks::{BlockKind, MarkdownBlock, split_blocks};
 use crate::worker::PreparedDocument;
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use std::sync::{Arc, Weak};
@@ -22,6 +23,11 @@ const PREVIEW_MAX_COLUMN_WIDTH: f32 = 1024.0;
 const PREVIEW_MIN_COLUMN_WIDTH: f32 = 120.0;
 /// Space above and below the rendered content.
 const PREVIEW_VERTICAL_MARGIN: f32 = 14.0;
+/// Space after the last column of a table, reached by scrolling to the right end. Whole pixels
+/// below 128: `egui::Margin` stores them as `i8`.
+const PREVIEW_TABLE_END_PADDING: f32 = 16.0;
+/// Space under a table so the horizontal scroll bar does not cover the last row.
+const PREVIEW_TABLE_BOTTOM_PADDING: f32 = 14.0;
 /// Extra space between blocks over egui's default. A paragraph is a run of separate labels, so
 /// very large values would space wrapped lines unevenly.
 const PREVIEW_BLOCK_SPACING: f32 = 8.0;
@@ -110,6 +116,28 @@ fn drop_unsafe_links(commands: &mut Vec<egui::OutputCommand>, first_new: usize) 
     });
 }
 
+/// Draws one table in its own horizontal scroll area, so a table wider than the column scrolls
+/// instead of running past the window edge.
+fn show_table(
+    ui: &mut egui::Ui,
+    cache: &mut CommonMarkCache,
+    text: &str,
+) -> egui::scroll_area::ScrollAreaOutput<()> {
+    egui::ScrollArea::horizontal()
+        .auto_shrink([false, true])
+        .show(ui, |ui| {
+            egui::Frame::NONE
+                .inner_margin(egui::Margin {
+                    right: PREVIEW_TABLE_END_PADDING as i8,
+                    bottom: PREVIEW_TABLE_BOTTOM_PADDING as i8,
+                    ..egui::Margin::ZERO
+                })
+                .show(ui, |ui| {
+                    CommonMarkViewer::new().show(ui, cache, text);
+                });
+        })
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum MarkdownDisplay {
     Rendered,
@@ -125,7 +153,7 @@ pub(crate) struct MarkdownView {
     source: bool,
     // A `Weak` keeps the allocation reserved, so a later document cannot reuse the address.
     built_from: Option<Weak<PreparedDocument>>,
-    text: String,
+    blocks: Vec<MarkdownBlock>,
     too_large: bool,
 }
 
@@ -136,7 +164,7 @@ impl MarkdownView {
 
     #[cfg(test)]
     pub(crate) fn has_text(&self) -> bool {
-        !self.text.is_empty() || self.built_from.is_some()
+        !self.blocks.is_empty() || self.built_from.is_some()
     }
 
     pub(crate) fn is_too_large(&self) -> bool {
@@ -152,7 +180,7 @@ impl MarkdownView {
 
     /// Drops the rendered text without changing the chosen mode.
     pub(crate) fn clear(&mut self) {
-        self.text = String::new();
+        self.blocks = Vec::new();
         self.built_from = None;
         self.too_large = false;
     }
@@ -174,15 +202,16 @@ impl MarkdownView {
                 .map_or(&[][..], |comparison| comparison.rows.as_slice());
             let bytes = rows.iter().map(|row| row.right.len() + 1).sum::<usize>();
             self.too_large = !fits_render_limit(bytes);
-            self.text = String::new();
+            self.blocks = Vec::new();
             if !self.too_large {
-                self.text.reserve(bytes);
+                let mut text = String::with_capacity(bytes);
                 for (index, row) in rows.iter().enumerate() {
                     if index > 0 {
-                        self.text.push('\n');
+                        text.push('\n');
                     }
-                    self.text.push_str(&row.right);
+                    text.push_str(&row.right);
                 }
+                self.blocks = split_blocks(&text);
             }
             self.built_from = Some(Arc::downgrade(document));
         }
@@ -198,7 +227,7 @@ impl MarkdownView {
     pub(crate) fn show(&mut self, ui: &mut egui::Ui, id: impl std::hash::Hash, font_size: f32) {
         let first_new = ui.ctx().output(|output| output.commands.len());
         let family = super::markdown_font::preview_font_family(ui.ctx());
-        let (cache, text) = (&mut self.cache, &self.text);
+        let (cache, blocks) = (&mut self.cache, &self.blocks);
         egui::ScrollArea::vertical()
             .id_salt(id)
             .auto_shrink([false, false])
@@ -210,7 +239,16 @@ impl MarkdownView {
                 ui.scope_builder(egui::UiBuilder::new().max_rect(column), |ui| {
                     apply_preview_style(ui.style_mut(), font_size, family);
                     ui.add_space(PREVIEW_VERTICAL_MARGIN);
-                    CommonMarkViewer::new().show(ui, cache, text);
+                    for (index, block) in blocks.iter().enumerate() {
+                        ui.push_id(index, |ui| match block.kind {
+                            BlockKind::Prose => {
+                                CommonMarkViewer::new().show(ui, cache, &block.text);
+                            }
+                            BlockKind::Table => {
+                                show_table(ui, cache, &block.text);
+                            }
+                        });
+                    }
                     ui.add_space(PREVIEW_VERTICAL_MARGIN);
                 });
             });
@@ -230,6 +268,94 @@ mod tests {
             text.into(),
             &CancelToken::default(),
         ))
+    }
+
+    fn prose(text: &str) -> Vec<MarkdownBlock> {
+        vec![MarkdownBlock {
+            kind: BlockKind::Prose,
+            text: text.into(),
+        }]
+    }
+
+    fn wide_table(columns: usize) -> String {
+        let header = (0..columns).map(|n| format!("Col{n}")).collect::<Vec<_>>();
+        let row = (0..columns).map(|n| format!("v{n}")).collect::<Vec<_>>();
+        format!(
+            "| {} |\n|{}\n| {} |\n",
+            header.join(" | "),
+            "---|".repeat(columns),
+            row.join(" | ")
+        )
+    }
+
+    #[test]
+    fn a_wide_table_scrolls_inside_the_column_and_leaves_end_padding() {
+        let table = wide_table(50);
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::vec2(600.0, 300.0))
+            .build_ui_state(
+                |ui, output: &mut Option<egui::scroll_area::ScrollAreaOutput<()>>| {
+                    let mut cache = CommonMarkCache::default();
+                    *output = Some(show_table(ui, &mut cache, &table));
+                },
+                None,
+            );
+        harness.run();
+        let output = harness.state().as_ref().expect("table drawn");
+        assert!(
+            output.content_size.x > output.inner_rect.width(),
+            "content {:?} must be wider than the viewport {:?}",
+            output.content_size,
+            output.inner_rect
+        );
+        assert!(output.inner_rect.width() <= 600.0);
+        // The scrollable content ends with the end padding, so the last column is not flush to it.
+        use egui_kittest::kittest::Queryable;
+        let last = harness.get_by_label("Col49").rect();
+        let content_right = output.inner_rect.left() + output.content_size.x;
+        assert!(
+            last.right() + PREVIEW_TABLE_END_PADDING <= content_right + 0.5,
+            "last column ends at {}, content at {content_right}",
+            last.right()
+        );
+    }
+
+    #[test]
+    fn a_narrow_table_does_not_need_to_scroll() {
+        let table = wide_table(2);
+        let mut harness = egui_kittest::Harness::builder()
+            .with_size(egui::vec2(600.0, 300.0))
+            .build_ui_state(
+                |ui, output: &mut Option<egui::scroll_area::ScrollAreaOutput<()>>| {
+                    let mut cache = CommonMarkCache::default();
+                    *output = Some(show_table(ui, &mut cache, &table));
+                },
+                None,
+            );
+        harness.run();
+        let output = harness.state().as_ref().expect("table drawn");
+        assert!(output.content_size.x <= output.inner_rect.width());
+    }
+
+    #[test]
+    fn a_document_with_a_table_and_link_definition_draws_all_blocks() {
+        let text = format!(
+            "# Title\n\n{}\nafter [x]\n\n[x]: https://a.io\n",
+            wide_table(3)
+        );
+        let view = MarkdownView {
+            blocks: split_blocks(&text),
+            ..MarkdownView::default()
+        };
+        let mut harness = egui_kittest::Harness::new_ui_state(
+            |ui, view: &mut MarkdownView| view.show(ui, "id", 13.0),
+            view,
+        );
+        harness.run();
+        use egui_kittest::kittest::Queryable;
+        harness.get_by_label("Title");
+        harness.get_by_label("Col2");
+        harness.get_by_label("x");
     }
 
     #[test]
@@ -303,19 +429,22 @@ mod tests {
         let mut view = MarkdownView::default();
         let first = document("# a\n\nb");
         assert_eq!(view.resolve(&first), MarkdownDisplay::Rendered);
-        assert_eq!(view.text, "# a\n\nb");
-        view.text.push('!');
+        assert_eq!(view.blocks, prose("# a\n\nb"));
+        view.blocks[0].text.push('!');
         assert_eq!(view.resolve(&first), MarkdownDisplay::Rendered);
-        assert!(view.text.ends_with('!'), "same document keeps its text");
+        assert!(
+            view.blocks[0].text.ends_with('!'),
+            "same document keeps its text"
+        );
         let second = document("changed");
         assert_eq!(view.resolve(&second), MarkdownDisplay::Rendered);
-        assert_eq!(view.text, "changed");
+        assert_eq!(view.blocks, prose("changed"));
         view.set_source(true);
-        assert!(view.text.is_empty() && view.built_from.is_none());
+        assert!(view.blocks.is_empty() && view.built_from.is_none());
         assert_eq!(view.resolve(&second), MarkdownDisplay::Source);
         view.set_source(false);
         assert_eq!(view.resolve(&second), MarkdownDisplay::Rendered);
-        assert_eq!(view.text, "changed");
+        assert_eq!(view.blocks, prose("changed"));
     }
 
     #[test]
@@ -323,7 +452,7 @@ mod tests {
         let mut view = MarkdownView::default();
         let large = document(&"x".repeat(MARKDOWN_RENDER_LIMIT_BYTES + 1));
         assert_eq!(view.resolve(&large), MarkdownDisplay::TooLarge);
-        assert!(view.is_too_large() && view.text.is_empty());
+        assert!(view.is_too_large() && view.blocks.is_empty());
         let small = document("fits");
         assert_eq!(view.resolve(&small), MarkdownDisplay::Rendered);
         assert!(!view.is_too_large());
@@ -411,7 +540,7 @@ mod tests {
         // Marks the font as installed in a pass that has not finished yet, the state right after
         // the first Windows preview frame. On other systems the bundled fonts are used directly.
         let view = MarkdownView {
-            text: "# Title\n\nbody `code`".into(),
+            blocks: split_blocks("# Title\n\nbody `code`"),
             ..MarkdownView::default()
         };
         let mut harness = egui_kittest::Harness::new_ui_state(

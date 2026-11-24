@@ -8,6 +8,7 @@ use fastdiff_core::RowKind;
 mod cells;
 mod interaction;
 pub(crate) mod markdown;
+pub(crate) mod markdown_blocks;
 pub(crate) mod markdown_font;
 mod responsive;
 pub(crate) mod selection;
