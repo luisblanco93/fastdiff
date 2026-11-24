@@ -29,9 +29,12 @@ fn toolbar_needs_two_rows(width: f32, searching: bool) -> bool {
     width < TWO_ROW_TOOLBAR_WIDTH + reserve
 }
 
+mod highlight;
 mod markdown;
 #[cfg(test)]
 mod markdown_tests;
+#[cfg(test)]
+mod path_tests;
 mod reflog;
 #[cfg(test)]
 mod reflog_paging_tests;
@@ -66,6 +69,12 @@ mod benchmark_tests;
 
 #[cfg(test)]
 mod lifecycle_tests;
+
+/// The app version shown at the right end of the status bar, so a screenshot or bug report says
+/// what is running.
+fn version_label() -> String {
+    format!("v{}", env!("CARGO_PKG_VERSION"))
+}
 
 pub struct ReviewTab {
     request: OpenRequest,
@@ -847,17 +856,16 @@ impl Fastdiff {
                                 BRANCH_LABEL_MAX_WIDTH.min(ui.available_width() * 0.5),
                                 18.0,
                             ),
-                            // Main-justified: the label's hit area spans the whole box, so a drag
-                            // can start anywhere beside the name instead of exactly on the text.
+                            // Not justified: only the name is clickable and highlighted. One
+                            // click highlights it, and Ctrl+C copies it.
                             egui::Layout::left_to_right(egui::Align::Center)
-                                .with_main_align(egui::Align::Min)
-                                .with_main_justify(true),
+                                .with_main_align(egui::Align::Min),
                             |ui| {
-                                // Selectable so the branch name can be copied.
-                                ui.add(
-                                    egui::Label::new(egui::RichText::new(branch))
-                                        .truncate()
-                                        .halign(egui::Align::Min),
+                                highlight::highlightable_label(
+                                    ui,
+                                    "branch",
+                                    branch,
+                                    egui::RichText::new(branch),
                                 )
                             },
                         );
@@ -867,6 +875,17 @@ impl Fastdiff {
                     ui.spinner();
                 }
                 let hints = shortcuts::binding_label("Alt+Up/Down files · Ctrl+F search · F1 help");
+                let version = version_label();
+                let version_width = ui
+                    .painter()
+                    .layout_no_wrap(
+                        version.clone(),
+                        egui::TextStyle::Small.resolve(ui.style()),
+                        ui.visuals().text_color(),
+                    )
+                    .size()
+                    .x
+                    + ui.spacing().item_spacing.x;
                 let hint_width = if ui.available_width() >= 900.0 {
                     ui.painter()
                         .layout_no_wrap(
@@ -881,7 +900,10 @@ impl Fastdiff {
                     0.0
                 };
                 ui.add_sized(
-                    [(ui.available_width() - hint_width).max(1.0), 18.0],
+                    [
+                        (ui.available_width() - hint_width - version_width).max(1.0),
+                        18.0,
+                    ],
                     egui::Label::new(
                         egui::RichText::new(format!(
                             "{} changed files · {}",
@@ -897,6 +919,9 @@ impl Fastdiff {
                 if hint_width > 0.0 {
                     ui.small(hints);
                 }
+                ui.add(
+                    egui::Label::new(egui::RichText::new(version).small().weak()).selectable(false),
+                );
             });
         });
         let maximum_sidebar = (context.content_rect().width() * 0.4).max(1.0);
@@ -1156,16 +1181,16 @@ impl Fastdiff {
                         }
                     });
                 }
+                // Not justified: only the text itself is clickable and highlighted.
                 let path_layout = egui::Layout::left_to_right(egui::Align::Center)
-                    .with_main_align(egui::Align::Min)
-                    .with_main_justify(true);
+                    .with_main_align(egui::Align::Min);
                 ui.with_layout(path_layout, |ui| {
                     if let Some(path) = &path {
-                        // A truncated label already shows the full path on hover.
-                        ui.add(
-                            egui::Label::new(egui::RichText::new(path).monospace())
-                                .truncate()
-                                .halign(egui::Align::Min),
+                        highlight::highlightable_label(
+                            ui,
+                            "path",
+                            path,
+                            egui::RichText::new(path).monospace(),
                         );
                     }
                 });

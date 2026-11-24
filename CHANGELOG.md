@@ -4,6 +4,11 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+### Added
+
+- The app version (for example `v1.4.0`) now shows at the right end of the status bar, so a screenshot or bug report says what is running.
+- One click on the path above a document, or on the branch name in the status bar, highlights that text, and Ctrl+C copies it. A click elsewhere or Esc clears the highlight.
+
 ### Fixed
 
 - A table wider than the Markdown preview now scrolls horizontally inside its own scroll area, with space after the last column, instead of running past the window edge.

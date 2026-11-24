@@ -152,3 +152,15 @@ fn the_scroll_bar_is_painted_below_the_tabs_not_over_them() {
         bar.top()
     );
 }
+
+#[test]
+fn the_status_bar_ends_with_the_app_version_at_any_width() {
+    for width in [420.0, 1200.0] {
+        let harness = harness(app_with_tabs(1), width);
+        let label = harness.get_by_label(&version_label()).rect();
+        assert!(
+            label.right() <= width && label.right() >= width - 24.0,
+            "{width}: version label at {label:?}"
+        );
+    }
+}
