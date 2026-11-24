@@ -39,7 +39,11 @@ mod repository_identity;
 mod shortcuts;
 mod tabs;
 #[cfg(test)]
-use tabs::{tab_name, tab_suffixes};
+mod tabs_tests;
+#[cfg(test)]
+use tabs::{
+    TAB_SCROLL_BAR_GAP, TAB_SCROLL_BAR_WIDTH, tab_name, tab_strip_scroll_style, tab_suffixes,
+};
 mod theme_menu;
 #[cfg(test)]
 mod theme_menu_tests;

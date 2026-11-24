@@ -3,6 +3,10 @@ use super::{Fastdiff, ReviewTab, theme_menu};
 use fastdiff_cli::OpenTarget;
 
 const TAB_ROW_HEIGHT: f32 = 32.0;
+/// Thickness of the tab strip's scroll bar. It sits in its own band under the tabs.
+pub(super) const TAB_SCROLL_BAR_WIDTH: f32 = 4.0;
+/// Space between the tabs and the scroll bar.
+pub(super) const TAB_SCROLL_BAR_GAP: f32 = 1.0;
 const TAB_ICON_SIZE: f32 = 11.0;
 /// Space between the tab name and its close control; with the control's own padding the ✕ sits
 /// as far from the name as from the tab's right edge.
@@ -22,6 +26,18 @@ struct TabView<'a> {
 enum TabAction {
     Select,
     Close,
+}
+
+/// A solid, thin scroll bar for the tab strip. egui's default bar floats over the content, so on
+/// hover it covered the tab names; a solid bar takes its own band, and only while tabs overflow.
+pub(super) fn tab_strip_scroll_style(base: &egui::style::ScrollStyle) -> egui::style::ScrollStyle {
+    egui::style::ScrollStyle {
+        floating: false,
+        bar_width: TAB_SCROLL_BAR_WIDTH,
+        bar_inner_margin: TAB_SCROLL_BAR_GAP,
+        bar_outer_margin: 0.0,
+        ..*base
+    }
 }
 
 pub(super) fn tab_name(title: &str) -> &str {
@@ -86,7 +102,16 @@ impl Fastdiff {
         // The tabs are created before the window-wide controls so keyboard and screen-reader
         // order reach them first. The controls sit at the right edge, so the tabs reserve the
         // width the controls had on the previous pass.
-        let (_, row) = ui.allocate_space(egui::vec2(ui.available_width(), TAB_ROW_HEIGHT));
+        // The row grows by the scroll bar band only while the tabs overflow, as seen last pass.
+        let overflowing = ui
+            .data(|data| data.get_temp::<bool>(overflow_id(ui)))
+            .unwrap_or(false);
+        let band = if overflowing {
+            tab_strip_scroll_style(&ui.spacing().scroll).allocated_width()
+        } else {
+            0.0
+        };
+        let (_, row) = ui.allocate_space(egui::vec2(ui.available_width(), TAB_ROW_HEIGHT + band));
         let controls_width = ui
             .data(|data| data.get_temp::<f32>(controls_width_id(ui)))
             .unwrap_or(0.0);
@@ -98,33 +123,50 @@ impl Fastdiff {
                 .max_rect(tabs_rect)
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
-        egui::ScrollArea::horizontal()
+        tabs_ui.spacing_mut().scroll = tab_strip_scroll_style(&ui.spacing().scroll);
+        let strip = egui::ScrollArea::horizontal()
             .id_salt("repository-tabs")
             .auto_shrink([false, true])
             .show(&mut tabs_ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    for (index, tab) in self.tabs.iter().enumerate() {
-                        let title = titles[index];
-                        let selected = index == self.selected_tab;
-                        let view = TabView {
-                            title,
-                            name: tab_name(title),
-                            folder: suffixes[index].as_deref(),
-                            selected,
-                            is_document: tab.request.target == OpenTarget::Document,
-                            reveal: selected && reveal_selected,
-                        };
-                        Self::tab(ui, view, |action| match action {
-                            TabAction::Select => self.selected_tab = index,
-                            TabAction::Close => close = Some(index),
-                        });
-                    }
-                });
+                // `ui.horizontal` is only as tall as a button and centres the 32 px tabs on that, which
+                // hangs them below the scroll area. A row of exactly the tab height keeps the tabs
+                // inside it, so the scroll bar band sits under them and not over them.
+                let row = egui::vec2(ui.available_width(), TAB_ROW_HEIGHT);
+                ui.allocate_ui_with_layout(
+                    row,
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        ui.spacing_mut().item_spacing.x = 0.0;
+                        for (index, tab) in self.tabs.iter().enumerate() {
+                            let title = titles[index];
+                            let selected = index == self.selected_tab;
+                            let view = TabView {
+                                title,
+                                name: tab_name(title),
+                                folder: suffixes[index].as_deref(),
+                                selected,
+                                is_document: tab.request.target == OpenTarget::Document,
+                                reveal: selected && reveal_selected,
+                            };
+                            Self::tab(ui, view, |action| match action {
+                                TabAction::Select => self.selected_tab = index,
+                                TabAction::Close => close = Some(index),
+                            });
+                        }
+                    },
+                );
             });
+        let overflows = strip.content_size.x > strip.inner_rect.width() + 0.5;
+        let overflow_changed = overflows != overflowing;
+        if overflow_changed {
+            let id = overflow_id(ui);
+            ui.data_mut(|data| data.insert_temp(id, overflows));
+            ui.ctx().request_discard("tab strip overflow changed");
+        }
         let mut controls_ui = ui.new_child(
             egui::UiBuilder::new()
-                .max_rect(row.with_min_x(split))
+                // The controls keep the tab row height; the extra band under it is the scroll bar's.
+                .max_rect(row.with_min_x(split).with_max_y(row.min.y + TAB_ROW_HEIGHT))
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
         Self::global_controls(&mut controls_ui, &mut self.help_open, &mut self.appearance);
@@ -133,7 +175,7 @@ impl Fastdiff {
             let id = controls_width_id(ui);
             ui.data_mut(|data| data.insert_temp(id, measured));
             ui.ctx().request_discard("global controls changed width");
-        } else {
+        } else if !overflow_changed {
             let selection = (self.selected_tab, self.tabs.len());
             ui.data_mut(|data| data.insert_temp(selection_id(ui), selection));
         }
@@ -212,6 +254,10 @@ impl Fastdiff {
             *help_open = true;
         }
     }
+}
+
+fn overflow_id(ui: &egui::Ui) -> egui::Id {
+    ui.id().with("tab-strip-overflow")
 }
 
 fn controls_width_id(ui: &egui::Ui) -> egui::Id {
