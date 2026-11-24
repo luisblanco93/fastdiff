@@ -4,9 +4,11 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
-### Added
+## [1.4.1] - 2026-11-24
 
-- The app version (for example `v1.4.0`) now shows at the right end of the status bar, so a screenshot or bug report says what is running.
+### Changed
+
+- The app version (for example `v1.4.1`) now shows at the right end of the status bar, so a screenshot or bug report says what is running.
 - One click on the path above a document, or on the branch name in the status bar, highlights that text, and Ctrl+C copies it. A click elsewhere or Esc clears the highlight.
 
 ### Fixed
