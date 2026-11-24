@@ -4,6 +4,10 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ## [Unreleased]
 
+### Fixed
+
+- When more tabs are open than fit, the tab strip's scroll bar now sits in its own thin band under the tabs instead of covering their names.
+
 ## [1.4.0] - 2026-11-09
 
 ### Added
