@@ -6,6 +6,7 @@ User-facing changes to fastdiff. Release notes are taken from the matching versi
 
 ### Fixed
 
+- A table wider than the Markdown preview now scrolls horizontally inside its own scroll area, with space after the last column, instead of running past the window edge.
 - When more tabs are open than fit, the tab strip's scroll bar now sits in its own thin band under the tabs instead of covering their names.
 
 ## [1.4.0] - 2026-11-09
